@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NYZ Border Preview</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+  html, body, #map { height: 100%; margin: 0; }
+  body { font: 14px/1.4 system-ui, sans-serif; background: #fff; }
+  .panel { background: #fff; padding: 10px 12px; border-radius: 8px; box-shadow: 0 1px 6px rgba(0,0,0,.25); max-width: 260px; }
+  .panel h1 { font-size: 15px; margin: 0 0 6px; }
+  .key { display: flex; align-items: center; gap: 8px; margin: 3px 0; }
+  .swatch { width: 26px; height: 0; border-top: 4px solid; }
+  .muted { color: #555; font-size: 12px; margin-top: 6px; }
+</style>
+</head>
+<body>
+<div id="map"></div>
+<script>
+const BORDER = /*BORDER*/null;
+const CANDIDATES = /*CANDIDATES*/null;
+const STYLE = {
+  road:        { color: "#d62728", weight: 5 },
+  water:       { color: "#1f77b4", weight: 4, dashArray: "8 6" },
+  placeholder: { color: "#ff7f0e", weight: 5, dashArray: "2 8" },
+  connector:   { color: "#2ca02c", weight: 5, dashArray: "10 5 2 5" },
+};
+const map = L.map("map");
+L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+  maxZoom: 19, attribution: "&copy; OpenStreetMap contributors",
+}).addTo(map);
+
+const candidates = L.geoJSON(CANDIDATES, {
+  style: { color: "#555", weight: 2, opacity: 0.5 },
+  onEachFeature: (f, l) => l.bindTooltip(f.properties.name, { sticky: true }),
+});
+const border = BORDER.features[0];
+const fill = L.geoJSON(border, { style: { color: "transparent", fillColor: "#d62728", fillOpacity: 0.08 }, interactive: false }).addTo(map);
+const segs = L.geoJSON({ type: "FeatureCollection", features: BORDER.features.slice(1) }, {
+  style: f => STYLE[f.properties.kind],
+  onEachFeature: (f, l) => l.bindTooltip(f.properties.kind === "road" ? f.properties.name : f.properties.kind, { sticky: true }),
+}).addTo(map);
+// the page can load while hidden (zero size), so refit whenever the size changes until the user takes over
+let userMoved = false;
+map.on("dragstart zoomstart", e => { if (e.originalEvent || e.type === "dragstart") userMoved = true; });
+new ResizeObserver(() => { map.invalidateSize(); if (!userMoved) map.fitBounds(fill.getBounds()); })
+  .observe(document.getElementById("map"));
+L.control.layers(null, { "Border": segs, "Fill": fill, "Other fetched roads": candidates }).addTo(map);
+
+const info = L.control({ position: "bottomleft" });
+info.onAdd = () => {
+  const d = L.DomUtil.create("div", "panel");
+  const p = border.properties;
+  d.innerHTML = `<h1>NYZ border draft ${p.version}</h1>
+    <div>${p.area_km2} km² · ${p.area_sq_mi} sq mi (incl. water)</div>
+    <div class="key"><span class="swatch" style="border-color:#d62728"></span>Wall on a real road</div>
+    <div class="key"><span class="swatch" style="border-color:#1f77b4;border-top-style:dashed"></span>Through water</div>
+    <div class="key"><span class="swatch" style="border-color:#ff7f0e;border-top-style:dotted"></span>Placeholder: needs a road</div>
+    <div class="key"><span class="swatch" style="border-color:#2ca02c;border-top-style:dashed"></span>Connector: no road needed</div>
+    <div class="muted">Click anywhere to get its coordinates.</div>`;
+  return d;
+};
+info.addTo(map);
+map.on("click", e => L.popup().setLatLng(e.latlng)
+  .setContent(`${e.latlng.lat.toFixed(4)}, ${e.latlng.lng.toFixed(4)}`).openOn(map));
+</script>
+</body>
+</html>

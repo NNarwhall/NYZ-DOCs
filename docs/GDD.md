@@ -1,0 +1,1326 @@
+# NYZ — Game Design Document
+
+> This file is the main source for the game's design. Update it as soon as something is decided.
+> Each change, with the reason for it, also goes in [DECISIONS.md](DECISIONS.md).
+
+**Last updated:** 2026-10-27
+
+---
+
+## 1. Vision
+
+A multiplayer, open-world zombie survival game that blends DayZ, Project Zomboid and Ark.
+
+### Design principle: easy to learn
+The game should be enjoyable for an **average player**. Project Zomboid takes a long time to learn, and NYZ should not. When a system could be deeper or simpler, choose the version an average player picks up quickly.
+
+### From DayZ
+- **Open world**
+- **Engaging PvP**
+- **Gear is looted from the world**
+
+### From Project Zomboid
+- **Survival simulation, but less deep than Zomboid.** It should be deep enough to matter without a long learning curve (see the design principle above).
+- **Zombie horde behavior**
+
+### From Ark
+- **Leveling / skill system.** Progress **can be lost on death but recovered** (see §6).
+- **Base building**
+- **Clans**
+- **Crafting**
+
+### Other features
+Features beyond the list above may blend mechanics from several games rather than come from a single one.
+
+---
+
+## 2. Fundamentals (decided)
+
+| Topic | Decision |
+|---|---|
+| Project name | **NYZ** ("New York Z"). This is the **project codename, not the final game name.** Final title: _TBD_ |
+| Engine | **Unreal Engine 5.8.** Dedicated servers (§3) need Unreal built from source; the Epic Launcher version can't build them. (Version picked 2026-11-08: the newest one installed.) |
+| Team | **Solo developer for now.** Open to unpaid volunteers (friends, or people who share the vision and are committed to it). |
+| Multiplayer | **250–300 players per server at launch.** Up to **500** later if the budget allows. (Raised from 100+ on 2026-10-27: 100 players would feel like a ghost town on this map.) |
+| Camera | **First person and third person**, switchable like in DayZ |
+| Platform | **PC first.** Consoles are a goal for later, not a launch target. |
+
+---
+
+## 3. Technical implications of the fundamentals
+
+These aren't design choices. They follow from section 2 and limit everything else.
+
+- **Dedicated, server-authoritative servers.** At 250–300 players, servers have to be dedicated machines, and the server decides the outcome of every action (loot, damage, building). Clients only send input and display the result. This is the main defence against cheating.
+- **Replication at 250–300 players is the biggest technical risk in the project.** Most Unreal multiplayer games ship with around 100 players per server; 250–300 is well beyond that, and 500 further still. Unreal's default replication won't handle it as-is. Options to evaluate: **Iris** (UE5's newer replication system), **Replication Graph** (what Fortnite uses for 100 players), and aggressive relevancy/net culling. If one server process can't hold the target, the fallback is splitting the map across several server processes, which is a large engineering project of its own. **This has to be proven early with a load test at 300**, not discovered near the end.
+  - **Player cap is a server setting**, so servers can run lower if the load test or hosting cost demands it.
+  - **How to test without 300 people:** headless bot clients (launched with `-nullrhi -nosound`) connect to a dedicated server and run a simple bot script (move, sprint, loot, shoot). A few dozen run on one PC; rent several cloud machines for 300. Measure server tick rate, bandwidth per player, and server CPU/memory with Unreal Insights. Simulate lag and packet loss with UE5's network emulation.
+- **Zombie count is the hardest number in the game.** Every zombie runs its AI on the server and has to be replicated. That cost multiplies with 250–300 players spread across a map, since more of the map has players near it and so more zombies need full AI. We'll need AI LOD: full AI near players and cheap or dormant AI far away. **Mass Entity** (UE5's crowd framework) is an option for hordes. Target zombie count per server: _TBD_.
+- **First and third person.** The third-person camera lets players look over walls and around corners without exposing themselves. DayZ deals with this through first-person-only servers. **Decided: a server setting, "first person only" or "both"; official servers offer both kinds (§17).**
+- **Consoles later.** Nothing has to be built for consoles now, but avoid things that are hard to undo: mouse-only UI, performance budgets that only high-end PCs can meet. Console certification and crossplay are each a project of their own.
+
+---
+
+## 4. Team & collaboration
+
+- **Contributor agreement before anyone contributes.** With unpaid volunteers, get a simple written agreement up front that covers who owns the code and art they make, and what they get if the game earns money. This prevents ownership disputes later. Use a standard template, or a lawyer once money is involved.
+- **Source control (decided 2026-11-08): Git + Git LFS, in two private GitHub repos.** UE5 projects contain large binary assets, so plain Git won't handle them well; LFS stores those separately.
+  - **[NYZ-DOCs](https://github.com/NNarwhall/NYZ-DOCs):** this GDD, the decision log, the lore bible, the transcripts and the map tools. **Only the developer has access**, because the lore's truth and twist are spelled out in the lore bible, the decision log and the transcripts. Volunteers can be given this GDD on its own, since it holds no spoilers.
+  - **[NYZ](https://github.com/NNarwhall/NYZ):** the UE5 game project, the repo volunteers would get. Set up with UE5 ignore and LFS rules when the project is created. **Lore never goes in it.**
+  - _Not chosen:_ Perforce (the UE industry standard, with a free tier for small teams), and one repo for everything (anyone given access would see the lore, and splitting a repo's history later is messy).
+
+---
+
+## 5. World & setting
+
+- **New York City, the real city.** The wider New York State may come later as **DLC**.
+- **1:1 scale in size.** The map matches NYC's real size and layout. Individual details (every building, sign, mailbox) don't have to match the real ones.
+- **Naming rule (decided 2026-10-27):** **real NYC neighborhood and street names** are used; **all events are fictional.** **Exception: trademarked or branded names** (e.g., stadiums named after sponsors such as Citi Field or Barclays Center, team-owned names like Yankee Stadium, privately owned landmark buildings) get fictional versions. _To check each landmark before use._
+- **Look and feel: an overgrown, beaten-down NYC.** Nature is taking the city back, to the point that **wild animals have returned**, including animals from the north making their way into the city (§22). _Added by the developer, 2026-10-27._
+  - _Analysis:_ overgrowth like this takes years, so it implies the outbreak happened years before the game starts. **Decided (lore timeline, 2026-10-27): the game starts 8 years after the outbreak, and the city fell about 6 years before the game** (§23). It also suits procedural generation: vegetation through cracks, vines on buildings and trees in streets can be placed by rules across the whole map.
+- **Launch map area: not final yet.**
+  - **First rough sketch** (Google Earth, 2026-10-27, [screenshot](images/launch-map-area.webp)): about 782 km² including water. **It's an estimate only, not the layout.** It roughly covered Manhattan, the Bronx, Brooklyn, Queens, part of New Jersey along the Hudson and the western edge of Nassau County, with Staten Island outside.
+  - **New Jersey is included**, but not necessarily everything in the sketch. Current extent: see draft v2 below.
+  - "Manhattan map" in chat was a slip: the launch map is wider than Manhattan alone.
+  - **Current border: draft v2** (below). The full change history is in [docs/map/border-notes.md](map/border-notes.md).
+- **Map border: a quarantine wall** along the land edges. It has to make sense in-world, so it follows **major highways or major streets**, never random side streets.
+  - **Method:** the border is built from OpenStreetMap road data so it follows the roads exactly. The script is `tools/map/build_border.py` (the segment list at the top is the border definition; fetch roads with `tools/map/fetch_routes.py`). Output: `docs/map/border-draft.geojson`, `docs/map/border-draft.kml` (opens in Google Earth) and `docs/map/preview.html`. View the preview through a local server (`python -m http.server 8765` in `docs/map`, then open `http://127.0.0.1:8765/preview.html`); OpenStreetMap's map tiles don't load when the file is opened directly.
+  - **Draft v2 (2026-10-27, current): about 910 km² (351 sq mi) including water** (harbor, Jamaica Bay, a strip of ocean, the Hudson, part of the Sound). **Land only: about 680 km² (about 260 sq mi), ±10%**, about 3× DayZ's Chernarus. The land figure is worked out from known borough and town land areas minus the parts cut out, not measured from the map; an exact figure needs coastline data. Clockwise:
+    - **North (Bronx):** from the Hudson at Riverdale, connector to **East 233rd Street**, east past Woodlawn, then the **Hutchinson River Parkway** south. Roughly the city line: Yonkers, Mount Vernon and Pelham are out; **Co-op City and Bay Plaza are in.**
+    - **East:** across Pelham Bay Park to the Sound, down the Sound **east of the Throgs Neck Bridge** into Little Neck Bay (Fort Totten in), then the **Cross Island Parkway** briefly, the **Clearview Expressway (I-295)**, **Francis Lewis Blvd**, **Springfield Blvd** and **Rockaway Blvd** along JFK's east edge. Both the Throgs Neck and Whitestone bridges, their highways and **JFK** are in; far-east Queens is out.
+    - **South-east:** through Head of Bay to Far Rockaway, then **Beach 9th Street** to the ocean. **The whole Rockaway peninsula is in**, including Breezy Point.
+    - **South:** through the ocean and the Lower Bay to Staten Island.
+    - **Staten Island:** **Staten Island Expressway** from the Verrazzano to **Clove Road**, then Clove Road north to the Kill Van Kull.
+    - **New Jersey:** through Newark Bay and up the Hackensack River, then **Pulaski Skyway → Tonnelle Avenue** (US 1-9) → **Broad Avenue** → **Grand Avenue** → **Fort Lee Road** → **US 1-9** to the GWB, meeting the Hudson north of the bridge. In: Bayonne, Jersey City, Hoboken, Weehawken, Union City, West New York, Guttenberg, Fairview, Cliffside Park, Edgewater, south Fort Lee, Palisades Park. Out: Secaucus, Ridgefield Park, the Meadowlands, north Leonia.
+    - **Back north** up the Hudson to Riverdale.
+  - **Placeholders still needing a real road:** across Pelham Bay Park; Fort Wadsworth to the Verrazzano.
+  - **Connectors** (land stretches without a road, accepted by the developer) are listed in the change list.
+- **Staten Island: only a few square miles are in, not the whole island.**
+  - Land access still works: **the Verrazzano Bridge is intact** (no destroyed bridge for now).
+  - A **boat from Manhattan is faster** than walking to the bridge, so boats are the practical way there.
+  - **Draft v1's piece is kept:** north-east corner, St. George to Fort Wadsworth, west to Clove Road. About **22 km² (8.6 sq mi) including the water at its edges.**
+- **George Washington Bridge: crossable, never blocked.** The border meets the Hudson north of it.
+- **Throgs Neck Bridge, Bronx–Whitestone Bridge and JFK** are inside the map.
+- **Pending border changes** are collected in [docs/map/border-notes.md](map/border-notes.md) and applied together in the next draft.
+- The developer knows this is extremely hard for a solo developer and plans to rely heavily on AI-assisted development.
+
+### Points of interest collected so far
+A running list from other sections; the full points-of-interest pass is still to do.
+- **Combat and base locations** (§18): Grand Central Terminal, Yankee Stadium, Barclays Center, Citi Field. _Branded names likely need fictional versions (naming rule above)._
+- **Port container yards** (§12): Red Hook, South Brooklyn Marine Terminal, Port Jersey, Brooklyn Navy Yard.
+- **Boat-only islands** (§12): e.g., Rikers Island, Governors Island.
+- **Diamond District** (§18), **hospitals** (antiviral, §8), **police and military sites**, **one or two gun shops** (§13).
+- **Helicopter sites** (§16): Downtown Manhattan, East 34th Street and West 30th Street heliports; hospital helipads; Floyd Bennett Field.
+- **Marinas** (§16), **construction and industrial sites** (§14), **bike-share docks** (§16).
+- **Safe zones** (§18): 6–7 in unremarkable warehouses and tall buildings (including one in NJ), sites TBD.
+- **A fallen Sanctuary** (§18): the ruins of a safe zone that fell; a lore area. Site TBD.
+- **The Breach site** (§23): the border neighborhood where the infection first got inside the walls; a lore area. NJ or the Bronx, TBD.
+
+### What 1:1 NYC means (analysis, not decisions)
+- **Size:** NYC has about 780 km² of land. DayZ's Chernarus is about 225 km², so the full city is roughly 3.5× larger, and far denser.
+- **Buildings:** NYC has around a million buildings, so making all of them enterable isn't realistic. We need a rule for which ones are (DayZ also leaves many buildings closed).
+- **Player density:** a 60-player DayZ server is about 0.27 players per km². With about 680 km² of land (border v2 estimate): 100 players ≈ 0.15/km² (half of DayZ, a ghost town); **250 ≈ 0.37/km² (1.4× DayZ); 300 ≈ 0.44/km² (1.6× DayZ)**; 500 ≈ 0.74/km² (2.7× DayZ). Hotspots still matter, because players cluster rather than spreading evenly.
+- **How it can be built:** generate it from real map data (OpenStreetMap: streets, building footprints, heights) with UE5's PCG framework and modular building kits, then hand-detail key locations. A small team can't build 780 km² by hand. OpenStreetMap data is free to use but requires credit in the game.
+- **Engine side:** UE5's World Partition (streams the map in pieces) and Large World Coordinates (keeps positions precise on big maps) handle the size. The hard parts are content and server load, not the engine's map-size limit.
+
+---
+
+## 6. Character progression & death
+
+### Levels and learned skills
+- The character has a **player level**, **skills** and **crafting recipes**. Learning is tied to level, Ark-style.
+- **XP comes from doing things:** killing zombies, crafting, building, healing, exploring new places, surviving.
+- **Level cap: 100** (placeholder, tuned later).
+- **Two separate point types per level, mapped from Ark:**
+
+| Ark | NYZ | What you spend it on |
+|---|---|---|
+| Stat points | **Skill points** | **Skills:** abilities (e.g., faster bandaging) |
+| Engram points | **Recipe points** | **Crafting recipes:** things you can make, including building pieces |
+
+- _Points per level for each type: TBD._
+- Both are grouped by category: **Building, Weapons & Repair, Medical, Cooking & Farming, Mechanics (vehicles), Survival** (traps, fishing, tracking).
+- **No raw stat points** (health, stamina, carry weight). Skills are abilities, not raw stats. High-level players are stronger because they can do and craft more, not because they're tankier. This keeps PvP fair for new players and makes losing levels on death hurt less.
+- **You can't learn everything.** There are fewer total points than things to learn, so players specialize and clans split roles (medic, builder, mechanic).
+- **Re-spending points is possible.** _Method: TBD. Not the found-book idea; the developer has a different method in mind._
+
+### On death
+- The character **loses everything** (all levels and all learned skills) until the skill journal is recovered.
+- Recovery combines two mechanics: the **skill journal** and a **catch-up XP boost**.
+
+### Skill journal
+- Stores the character's progress. Reading it after death restores:
+  - **60–80% of the player level** (exact % TBD).
+  - **100% of learned skills and crafting recipes**, including ones learned above the restored level.
+- **Example:** you die at level 80, read the journal, and come back at about level 55. You can still craft things you learned at level 80, but new learning is limited to what a level-55 character can learn and opens up again as you level. _The numbers are placeholders; the system itself is decided._
+- **Snapshot:** a journal only holds progress up to the last time you wrote in it. Updating it is a quick writing action.
+- **Multiple journals allowed.** Each one is its own snapshot, so every copy has to be updated separately.
+- **Waterproof:** getting wet never damages a journal (§11).
+- **Ownership (tentative, may revisit):** only the owner can read their journal; anyone who finds it can destroy it.
+- **Burying:** with a **shovel**, on any **diggable ground** (dirt, soil). The chance anyone else finds a buried journal is low.
+  - _Implication (analysis):_ most of NYC is concrete and asphalt, so diggable ground means parks, yards, empty lots and riverbanks. Parks become valuable hiding spots.
+
+### Catch-up XP boost
+- After death, XP gain is boosted until the player gets back to their previous level.
+- **Applies from level 1**, including before the journal is found.
+- _Rate and details: TBD._
+
+### Open items
+- Journal ownership: confirm "owner reads, anyone can destroy" (tentative).
+- How is a journal made? (Decide with crafting/items.)
+- Can a buried journal be found by anything other than luck (e.g., freshly dug soil visible for a while)?
+
+---
+
+## 7. Survival stats
+
+Built around the "easy to learn" principle: a few stats always on screen, conditions that only appear when you have them, and one clear fix for each.
+
+### Always shown
+| Stat | Fix |
+|---|---|
+| Health | Heals slowly when you're fed, watered and not hurt |
+| Food | Eat |
+| Water | Drink |
+| Stamina | Rest; used up by sprinting, melee and climbing |
+| Body temperature | Clothing, shelter, fire; being wet makes you colder |
+
+### Conditions (appear only when you have one)
+| Condition | Cause | Fix |
+|---|---|---|
+| Bleeding | Cuts, gunshots, bites | Bandage or rag |
+| Broken limb (arm or leg) | Falls, heavy hits | Splint. Until then, a broken leg means you limp and can't sprint; for a broken arm, see Body-part health |
+| Wound infection | Wounds left untreated | Disinfectant or antibiotics |
+| Sickness | Rotten food, dirty water | Medicine and rest |
+| Cold | Too cold or wet for too long | Warm up, medicine |
+| Unconscious | Big hits, bad falls | Wears off after a while. While you're out, other players can restrain or rob you. |
+| Zombie infection | Bites (high chance), scratches (low chance) | Rare antiviral. See §8 Zombie infection |
+
+### Mood: stress, boredom, happiness
+- **In the game, but much gentler than Zomboid.** They drain **far slower**, and there are **many more ways to fix them**. Players should never end up stressed, bored or unhappy around the clock.
+- **Only appears on screen when it starts getting bad**, like conditions.
+- **Pace:** a player who eats decent food and spends some time at their base or with friends should rarely see a mood warning. It should take hours of neglect, not minutes.
+- **Being near clanmates reduces stress and boredom.** This ties mood to clans and rewards grouping up.
+
+| Mood | Gets worse from | Gets better from | When it's bad |
+|---|---|---|---|
+| Stress | Fights, zombies close by, getting hurt, being hunted | Being at your base, being near clanmates, cigarettes, alcohol, time away from danger | Shakier aim; stamina recovers slower |
+| Boredom | Long idle stretches, repeating the same task | Books and magazines, music (radio, instruments), cards and games, exploring new places, being around other players | Slower XP gain |
+| Happiness | Bad food, being wet, cold or sick, long stress or boredom | Good cooked meals, coffee, alcohol, music, comfort items, a comfortable base | **Low:** slower healing. **High:** small XP bonus |
+
+### Nutrients
+- **In the game, but less critical than in Zomboid.**
+- **Food is counted in calories**, like DayZ.
+- **Three food groups tracked in the background:** protein (meat, fish, beans), carbs (bread, rice, pasta, chips), vitamins (fruit, vegetables).
+- **No extra bars on the HUD.** There's one status instead:
+  - **"Well fed"** (balanced diet): slightly faster healing and stamina.
+  - **"Poor diet"** (a group missing for a long time): slightly slower healing and lower maximum stamina.
+- **Diet menu:** a deeper menu (e.g., in the character/health screen) shows the three groups and which one is missing.
+- **Never lethal on its own.** You fix it by eating the missing group.
+- Each food's tooltip shows which groups it covers.
+- **Full stomach:** you just can't eat more. No vomiting from overeating.
+
+### Water in NYC
+- The rivers around NYC are salt or brackish water and can't be drunk. Exception: the Bronx River is fresh water (it still needs boiling).
+- Fresh water sources: bottled water, rain collection, reservoirs (e.g., Central Park), **rooftop water towers**.
+- Dirty water must be boiled or purified before drinking.
+
+### Body-part health
+- **Separate health per body part.** It's deep, but a good UI makes it easy for a new player to understand. The UI is what makes or breaks this system.
+- **Six parts:** head, torso, left arm, right arm, left leg, right leg. Hands go with the arms and feet go with the legs.
+- **Total health** is all the parts added together. The "Health" stat above is this total.
+- **Head or torso at zero: death.**
+- **Arm or leg at zero: "destroyed."** Heavy penalty, and any more damage to that limb spreads to the rest of the body. A **surgery kit** fixes it; the limb comes back with lower maximum health until it fully heals over time.
+- **Conditions belong to a body part.** Bleeding on the left arm means you bandage the left arm; a bite can be on the right leg. This matters again for zombie infection.
+
+| Part | When hurt | Worst case |
+|---|---|---|
+| Head | Blurry vision, ringing ears; head hits can knock you out | Death at zero |
+| Torso | Stamina recovers slower | Death at zero |
+| Arms | More aim sway, slower reloading and melee | **Broken arm** (see below) |
+| Legs | Slower movement | **Broken leg:** you limp and can't sprint until splinted |
+
+#### Broken arm
+- **Rifles and other two-handed weapons:** **hip fire only**, with heavy sway. No aiming down the sights.
+- **Pistols:** can still be aimed one-handed with the good arm.
+
+#### Handedness
+- Chosen at **character creation: left- or right-handed.**
+- Players **aren't told why it matters.** They find out when it comes up, e.g. with a broken arm.
+- **Gameplay only, for now.** Animations are the same for everyone; only the one-handed pistol animations exist for each hand (needed for the broken-arm rule anyway). Mirrored animations for every weapon would double the animation work and make guns look wrong (ejection port and bolt on the wrong side).
+
+| Situation | Effect |
+|---|---|
+| Broken **off-hand** arm, using a pistol | Main hand does the work: almost no penalty, a little extra sway |
+| Broken **main-hand** arm, using a pistol | Shooting with the off hand: noticeably more sway, slower reloads |
+| One-handed melee (knife, machete) | Same pattern as pistols |
+| Throwing (grenades, bottles, rocks) | Off-hand throws are shorter and less accurate |
+
+- **First-time hint:** the first time handedness matters, a short message explains it (e.g., *"Your main arm is broken: aiming with your off hand."*). Players still discover it in the moment without being confused.
+- **Maybe later:** visible handedness and intentional off-hand aiming (see "Maybe later" near the end of this doc).
+
+#### Treating injuries (UI)
+- **HUD:** a small body outline appears when you're hurt. Each part is colored green, yellow, red, or black when destroyed.
+- **Health screen:** click a part to see its injuries, then drag a bandage or splint onto it.
+- **"Treat" button:** one click uses the best item you have on your most urgent injury. New players never have to learn the details; experienced players can treat each part by hand.
+- **Armor per body part** (helmets protect the head, vests the torso, etc.) follows from this. _Designed with items and loot._
+
+### Cut
+- **Sleep / fatigue:** cut entirely.
+- **Panic:** cut.
+- **Body weight:** cut.
+
+---
+
+## 8. Zombies
+
+### Types and speed
+- **A few different speeds, based on how fresh the zombie is.**
+
+| Tier | Speed | Where they're found |
+|---|---|---|
+| **Fresh** (recently turned) | Between a walk and a run. Not a full run | Rare. Near recent deaths, and players' bodies that turned (§10) |
+| **Weathered** | Normal walk | Most zombies |
+| **Decayed** | Shamble | Common in old, settled areas |
+| **Crawler** | Crawl | Any zombie with destroyed legs |
+
+- _Exact speeds per tier: tuning, during development._
+- **No regular zombie runs at full speed.** _Implication (analysis): a sprinting player can outrun any regular zombie until stamina runs out._
+- **Variants by what they were:** civilian, police, firefighter, military, hospital staff. Clothing decides toughness and loot (military: armor and military gear; police: pistols and ammo). DayZ-style.
+- **Special zombies:**
+  - **1–2 special types at most.** Not overkill.
+  - **Extremely, extremely rare.**
+  - **Harder to kill.**
+  - Spawn **only at lore areas.**
+  - **The two types** (backstory in the [lore bible](lore/LORE.md); kept out of this doc on purpose):
+    - **The Patient:** tougher (takes more head damage), and **the only zombie that truly runs** (the exception to "no regular zombie runs at full speed"). Wears a hospital gown and a wristband you can loot. **Sometimes says a word or a sentence in English**, then goes back to incoherent mumbling.
+    - **The Host:** slow and very hard to kill, with medical restraints and tubing hanging off it.
+  - **Both look clearly different from regular zombies, e.g. mutated.**
+
+### Senses
+- **Hearing is the main sense.** Gunshots carry far, car alarms and breaking glass less far, footsteps only close by. Crouching and walking slowly keep you quieter.
+- **Footwear changes footstep noise.** Boots are clunkier and louder; sneakers are quieter. This matters most up close and crouched.
+  - **The same footstep sound is heard by other players**, so sneakers are also a PvP choice for sneaking up on people.
+  - **Boots protect more to balance being louder:** they block more bites to the legs and feet, keep you warmer and last longer. Sneakers are quiet but protect less and wear out faster.
+- **Sight:** worse at night, in rain and in fog.
+
+### Hordes (Zomboid-style)
+- Noise **pulls zombies together**, and groups **migrate across the city** over time.
+- A loud gunfight can bring a horde down on everyone nearby, so noise is both a weapon and a risk in PvP.
+- **Cleared areas stay cleared for a while** and refill slowly as hordes wander in. Zombies don't respawn out of thin air.
+- **NYC chokepoints:** bridges and tunnels. **Subways:** dark, packed danger zones.
+
+### Killing zombies
+- **Only head damage kills.**
+- Body shots stagger them and can knock them down.
+- **Destroyed legs turn them into crawlers.**
+
+### Zombie infection
+- **Bites:** high chance of infection. **Scratches:** low chance.
+- **Clothing on the bitten body part can block it** (e.g., a leather jacket protects the arms).
+- **Cure: Remisso, a rare antiviral** found in hospitals and labs. Hospitals become high-value PvP hotspots, which also helps player density at 1:1 scale.
+- **Delay: Hourglass** (a very rare compound, lab code HG-7) that **delays infection but doesn't cure it.** It buys time to find the antiviral. Very rare or top tier (§12). _Backstory in the lore bible._
+- **Dying of infection turns you into a zombie wearing your gear.** Your friends have to put you down. Other deaths may turn your body too (see §10).
+
+### Zombies and bases
+- **Noise attracts zombies to bases.**
+- **Damage to a base depends on its building-material tier:**
+  - **Tier 1:** small and large hordes both take it down easily.
+  - **Tier 4:** a small horde can't damage it at all; a large horde wears it down over time.
+  - _Tiers 2–3 and exact numbers: designed with base building._
+- **Climbing:**
+  - **Low fences** (waist-high or lower, the kind you can hobble over): zombies climb over them slowly and sometimes fall.
+  - **Fences taller than a person:** zombies can't climb them. The only way through is breaking them, following the material-tier rules above.
+  - **Ladders:** zombies can't climb them, so ladders matter in base design.
+
+### Open items
+- Zombie count per server (after the load test).
+- Day/night behavior (with weather and day/night).
+
+---
+
+## 9. Base building & raiding
+
+### Two ways to build (both in the game)
+- **Fortify existing buildings:** claim an apartment, storefront, brownstone or rooftop, then barricade and upgrade its doors and windows.
+- **Build from scratch** with snap-together pieces (foundations, walls, floors, doors, stairs) in open spaces: parks, empty lots, rooftops.
+- **Concern raised by the developer:** in a decaying, possibly bombed NYC, abandoned buildings would have big open holes that need to be filled in and modeled. That adds a lot of work.
+- **Approach: shared grid, "to a degree."** The city's modular building kit and the player building pieces use the **same grid**. A hole in a damaged building is then just a missing grid piece, and players patch it with the same snap walls and floors they build with. No separate patching system and no custom model per hole. Only certain building types are claimable (houses, brownstones, small shops, some apartments).
+  - **Must not lock out outside assets.** Models found later (e.g., on Fab) must be addable.
+  - **Suggested method:** only structural pieces (walls, floors, door and window openings) follow the grid, since those are what players patch. An outside asset is then either **fitted to the grid** (resized or padded so its walls line up with grid units, a quick job per asset in Unreal or Blender) so it supports patching, or used as a **non-claimable building or prop** (landmarks, unique buildings, decoration) that doesn't need to match the grid.
+  - **The grid size must be decided before any building models are made.** Changing it later means remaking them all.
+
+### City buildings can't be destroyed
+- Only player-added pieces can be damaged. Raiders have to come through doors, windows and player-built walls.
+- Why: destructible city buildings would be an enormous technical cost, both for the server and for 1:1 NYC.
+- Side effect: a fifth-floor apartment with one barricaded door is a strong base, which gives players a tactical choice.
+- **Rooftop bases reachable only by helicopter are allowed** (§16).
+
+### Material tiers
+| Tier | Material | Zombie damage |
+|---|---|---|
+| T1 | Wood, scrap planks | Any horde breaks it easily |
+| T2 | Sheet metal, reinforced wood | Small hordes slowly; large hordes quickly |
+| T3 | Brick, concrete blocks | Small hordes barely; large hordes over time |
+| T4 | Steel, reinforced concrete | Small hordes can't damage it; large hordes wear it down over a long time |
+
+### Building noise
+- **Building attracts zombies, but it isn't extremely loud.**
+- **Outside, or at the edge of a building** (a window or door): heard about **1–2 city blocks** away.
+- **Fully inside a building:** muffled, heard about **1 city block** away.
+- **Distances will be set in meters during map development.** Real NYC blocks vary in size, and the street layout and terrain aim for 1:1, so "a block" depends on where you are.
+
+### Claiming, decay and limits
+- A **claim item** placed in the base sets an area where only you and your clan can build.
+- **Bases decay if nobody from the clan visits for X days.** Visiting resets the timer. _X: TBD._
+- **Each clan has a piece cap**, needed for server load, but it **shouldn't feel limiting** to players. _Number: TBD, after testing._
+
+### Raiding
+- Higher tiers need better tools or explosives: sledgehammer and crowbar for T1, power tools for T2–T3, explosives for T4.
+- **Raiding should never be easy.** Raid tools and explosives are **hard to find**.
+- **Raiding is loud** and attracts hordes, so raiders deal with zombies arriving mid-raid.
+
+### Offline raid protection
+- **Default: offline protection.** Bases take much less damage while the whole clan is offline. It only starts 15–30 minutes after the last member logs off, so logging out mid-raid doesn't save a base.
+- **Server setting** to switch to: no protection (Rust-style) or set raid hours.
+
+### Locks
+- **Code locks** on doors; clanmates get access automatically, **by rank level** (clan-wide or officer and above; see §15).
+
+### Where you can build
+- **Player spawn areas: no building.**
+- **Chokepoints (bridges, tunnels, subway entrances): building allowed, but with major inconveniences.** Clans can block or hold them, but it mustn't be worth it for every clan to do so.
+  - **Hordes travel through chokepoints.** Bridges and tunnels are natural migration routes, so a base there takes constant zombie pressure.
+  - **Faster decay**, so holding one means showing up often.
+  - **Claiming and storage are allowed.** Building in a dangerous area means being ready to hold it or paying the price, a lesson players learn after one or two tries.
+  - _No smaller piece cap for now (see "Maybe later")._
+- **Major loot hotspots** (e.g., the biggest hospitals): **no building.** Which hotspots count as major: decided with the map and loot.
+- **Smaller loot spots** (small hospitals, clinics, schools, etc.): **building allowed.** **Loot doesn't respawn inside a claimed base's area.** Only the claimed area is affected, not the surroundings, so claiming a clinic doesn't let a clan farm it, and loose pieces don't block anyone's loot.
+
+### Open items
+- Decay timer and piece cap numbers.
+- Grid size (before any building models are made).
+
+---
+
+## 10. Death & respawn
+
+### Fresh spawns
+- **You pick a borough and a neighborhood**, then spawn at a **random point spread throughout that neighborhood.** This makes finding friends quicker on a 1:1 map.
+- **Only a few select neighborhoods are spawn neighborhoods.** High-loot neighborhoods are never spawn points.
+- No building at spawns (§9).
+
+### Respawning at your base
+- **Sleeping bags:** cheap, long cooldown between respawns. **Can't be placed within X distance of another clan's claimed base** (stops players from spawning right next to a base they're raiding). _X: TBD._
+- **Beds:** expensive, short cooldown. They also count as comfort items for mood.
+- **Both can be shared with clanmates.**
+
+### Your body
+- Everything you carried stays on your body. **Anyone can loot it**, including you if you get back in time.
+- A body that doesn't turn stays in the world for **2 hours.** Getting back can be difficult on a 1:1 map, and games like Ark give players a lot of time too.
+- **Your body may turn into a zombie, depending on how you died.** It doesn't turn instantly. Once it turns, it's a Fresh zombie wearing your gear and it wanders off, so **you may have to track it down** to get your gear back.
+- **Rule: your body turns if you were infected when you died, whatever actually killed you.**
+
+| How you died | Turns? |
+|---|---|
+| Died of zombie infection | Yes |
+| Killed by zombies (bitten while dying) | Yes |
+| Infected, but killed by a player, a fall, bleeding, etc. | Yes |
+| Not infected (player, fall, cold, starvation) | No |
+| **Killed by a head hit** | **Never.** Destroying the head stops it, same rule as zombies |
+
+- **Turning time: a random 30–60 minutes.** On a 1:1 map, players need a real chance of getting back to their body in time.
+- Tactic this creates: killing an infected enemy with a headshot stops their body from turning and walking off with their gear.
+- **Lore will be fitted around these rules** (e.g., only infected people turn).
+
+### Starting kit
+- Basic clothes, one bandage, a small snack, a flashlight. (No MetroCard: they've been phased out.)
+
+### Progression on respawn
+- Level 1 with the catch-up XP boost until you find your journal (§6).
+
+### Logging out
+- **DayZ-style:** your character stays in the world for **30 seconds**, then disappears. A longer timer applies if you were just in a fight, so you can't escape a fight by quitting.
+- _Not Rust-style:_ characters don't keep sleeping in the world after logging off. That would clash with offline raid protection (§9).
+
+### Spawn protection
+- **Extremely minimal.** It only covers loading in: you can't die while your screen is still black but the server has already loaded you. It ends as soon as you can see and move.
+
+### Open items
+- Sleeping bag distance from another clan's base (X).
+
+---
+
+## 11. Inventory
+
+- **Basis: DayZ's grid system, with a grid for each piece of clothing.** **Bags don't use a grid:** they're physical spaces seen in a side cutaway (see Bags below). _Changed 2026-10-27; the basis first gave each bag a grid too._
+- **Goal: an upgraded version, so players don't see it as a DayZ copy.** It should be clearly NYZ's own system.
+- **Core idea: where and how you pack something matters.** In DayZ, a bandage in your backpack works the same as one in your shirt pocket. In NYZ it doesn't.
+
+### Kept from DayZ
+- Every garment has its own pocket grid. Items take up cells and can be rotated.
+- Weapons have attachment slots.
+- Items have condition levels.
+- Items in clothing get damaged when that clothing is hit.
+- **Weight:** total carried weight affects stamina, DayZ-style. Nothing finer than that.
+
+### Reach zones: where you carry it sets how fast you can use it
+| Zone | What counts | Access |
+|---|---|---|
+| **Hands** | What you're holding | Instant |
+| **Quick reach** | Jacket and pant pockets, belt, chest rig, holsters | Fast, even while walking |
+| **Pack** | Backpacks, duffels, bags | You stop, swing the bag around and dig through it. Slow, and you're exposed while you do |
+
+- **The quick bar (hotbar, keys 1–0) stays** and only pulls from quick reach.
+- The Treat button (§7) uses supplies in quick reach first. Anything in the pack takes longer.
+- Pockets are small, so quick-reach space is the real tension. E.g., a medic keeps bandages on the chest rig; a raider keeps the crowbar on the belt.
+- _Analysis:_ Tarkov has a loose version of this (chest rig versus backpack). The time it takes to dig through a pack is what's new.
+
+### Bags: cutaway packing
+The developer's idea: you see the bag from the side, as if looking through it, and physically move items around in that space. Items collide in the UI if they don't fit.
+
+- **The view:** opening a bag shows it in cross-section, as if its side were cut away: main compartment, lid, front pocket, side bottle pockets.
+- **Pocket tabs** (the developer's idea): a small tab switches the pocket view. It hides the main compartment and its contents and shows a smaller pocket's space instead, for smaller items.
+- **Slings** (the developer's idea): bags have sling attachments for primary weapons (crowbar, bat, rifle, etc.). **Better bags have 2 or more slings.**
+  - **Every character also has one body sling** over the shoulder, with or without a bag. Bags add their slings on top.
+- **Each bag type has its own outline.** The shape is what sets bags apart, not "6×8 versus 8×10". Examples (final list with loot & items):
+
+| Bag | Shape | Good for |
+|---|---|---|
+| School backpack | Small, upright | Starting out |
+| Hiking pack | Tall and deep, with a lid pocket | Lots of small things |
+| Duffel | Long and low | Rifles, long tools |
+| Messenger bag | Wide and shallow | Flat things, quick access |
+| Tactical pack | Medium, with outside pouches | Staying organized |
+
+- **Items keep their real side profile** instead of being rectangles: a bottle has a neck, a pan has a handle, a rifle is long and thin. They either stand up or lie on their side (90° turns).
+- **Gravity, no tumbling:**
+  - A dropped item falls straight down until it lands on something.
+  - While you drag, an outline shows where it will land. If it won't fit (it would stick out of the opening, or it's too long for the bag), the item turns red and a short message says why.
+  - Take something out from the bottom and everything above it drops down.
+  - _Why no tumbling:_ real physics, where things roll and tip over, feels chaotic and is hard to keep in sync with the server. Straight-down drops still feel physical, and an item always lands in the same place.
+- **Hard and soft items:**
+  - Hard items (cans, tools, guns, bottles) keep their shape.
+  - Soft items (clothes, rags, tarps, sleeping bags) fill whatever gaps are left, like stuffing a shirt around your cans.
+- **Pack order is reach.** Things on top come out fast. Something at the bottom takes longer, because your character digs past everything above it. _Times: tuning. The demo used 1 s plus 0.5 s for each item on top._
+- **Zip line:** a bag can be packed past its zip line, but then it can't close. Things stick out (visible on your character) and can fall out when you sprint or jump.
+- **Stretching** (the developer's idea):
+  - Soft bags (canvas, nylon) can bulge a little past their outline for extra room. That can be what lets the zip close.
+  - **Stretched bags wear faster** (item condition, see Kept from DayZ).
+  - A worn-out bag **rips at the seam** and loses room until it's sewn (crafting).
+  - Rigid bags (a tactical pack with a frame, a hard-shell case) don't stretch.
+  - **The cost is visible:** the bag's outline bulges, with a short note like "Stretched: wearing faster", so players don't first find out when it rips.
+- **Speed versus care:**
+  - **Toss in:** one click throws an item in, and it lands wherever it falls. Fast for looting a body under fire, but it wastes space and rattles.
+  - **Repack by hand** once you're safe: more fits, and it's quiet.
+  - **Auto-pack button:** packs well but not perfectly.
+- **Rule: packing by hand is a bonus, never a requirement.** Auto-pack gets about 90% of the way: neat, quiet and padded with your soft items. Packing by hand only buys a little more room. An average player who never packs by hand should still have a fine time.
+- **Pockets stay grids.** Pockets are small, so a physical view there would be fiddly for no gain. Pockets (quick reach) are fast and simple; bags (pack) are slow but roomy.
+
+### Rattle: how you pack it sets how loud you are
+- Hearing is the zombies' main sense, and other players hear footsteps (§8). The inventory joins in.
+- **Hard items with empty space beside them** in a bag (cans, bottles, tools, loose ammo) clatter when you run or jump. In the bag view, loose items visibly shake.
+- You quiet them by stuffing soft items into the gaps, or by packing them in a pouch or ammo box.
+- When your bag is loud, a small **rattle icon** appears. Its tooltip names the items causing it, so the fix is obvious.
+- Packing quietly becomes a sneaking choice, like sneakers versus boots.
+
+### Hidden pockets: what other players can find
+- A few garments have **one or two tiny hidden cells:** an inner jacket pocket, a boot stash, a waistband.
+- Someone searching you (unconscious, §7, or your body, §10) doesn't see hidden pockets at first. Finding them takes a **slow extra search**. On a knocked-out player that's a race against them waking up and against zombies arriving.
+- The natural place for your journal, a door code or a small stash.
+
+### NYC carry gear
+- **Shopping carts and rolling suitcases:**
+  - Huge storage that you push or pull.
+  - You can't sprint, and both hands are busy, so no weapon.
+  - Suitcase wheels clatter on the pavement and carts rattle.
+  - A very New York image, and a real trade-off for hauling loot across a 1:1 city.
+- **Straps on big backpacks:** bulky items (sleeping bag, shovel, bat, rolled tarp) hang on the outside, **visible to everyone.** A shovel on someone's pack hints that they bury journals.
+  - **The bat is both bulky gear and a sling item:** it can go on straps or on a sling.
+  - **Inside or outside:** a long or bulky item that fits can be shoved into the bag. If it doesn't fit, it still has a place on the outside.
+- **Dry bags:** the city is ringed by water, and boats are how you reach Staten Island (§5). Falling in soaks ordinary bags: matches, bandages and books are useless until they dry. A dry bag keeps its contents dry.
+- **The skill journal is waterproof** (§6), so water never becomes a way to lose your progress.
+
+### Quality of life
+- **Auto-arrange button** for pocket grids and **Auto-pack** for bags (see Bags), so nobody has to pack by hand unless they want to.
+- **One-press quick move:** an item goes to its best spot (medicine and ammo to quick reach, everything else to the pack).
+- **Works with a controller from day one** (§3: no mouse-only UI). Auto-pack, auto-arrange and a radial menu work on a gamepad. In the bag view, items drop straight down, so you only move an item over its spot and drop it.
+
+### Technical implications (analysis)
+- With 300 players, a container's contents are only sent to its owner and to whoever opens it. Everyone else only sees worn or strapped-on gear.
+- Rattle only needs recalculating when a bag's contents change, not every frame.
+- **Bag packing stays server-authoritative.** The client only sends where an item was dropped and which way it faces. The server works out where it lands with the same straight-down rule, so a cheater can't claim something fits.
+- Positions sit on a **fine hidden grid** (around 1 cm), so the client and server always agree.
+- **Soft items are cheap:** they have no shape, just a volume that fills leftover space, so nothing squishy has to be simulated.
+- **More UI work than a grid.** Grid inventories are a solved problem with ready-made templates; the cutaway bag has to be built from scratch (item outlines, the landing outline, auto-pack). _Not checked yet:_ whether an existing UE5 plugin handles non-rectangular item shapes.
+- **Every item needs a side-profile outline**, made once per item.
+
+### Open items
+- Final list of bag types and their outlines (with loot & items), including how many slings each has.
+- Tuning: dig-out times, how far soft bags stretch, how fast stretched bags wear.
+
+---
+
+## 12. Loot & items
+
+### Item condition
+- **4 levels, color-coded:** Pristine → Worn → Damaged → Ruined.
+- Condition affects how well an item works (e.g., a damaged rifle jams more; a worn jacket blocks fewer bites).
+- **Repair kits** restore condition, but never back to Pristine, so items still wear out over time.
+
+### Where loot spawns: by building type (DayZ-style)
+| Place | Loot |
+|---|---|
+| Apartments, houses | Food, clothes, basic tools. **Guns very rarely** (see below) |
+| Bodegas | Snacks, drinks, cigarettes, coffee (a mood item) |
+| Pharmacies, clinics | Medicine, bandages |
+| Hardware stores | Tools, building materials |
+| Police stations | Pistols, ammo, police gear |
+| Military zones, National Guard sites | Rifles, armor, explosives |
+| Hospitals | Medical supplies, antiviral |
+| Port container yards | Ordinary cargo; **smuggled guns** (see below) |
+
+### Port container yards
+- **All four ports in the map are in** (all checked inside border v2): **Red Hook Container Terminal** and **South Brooklyn Marine Terminal** (Brooklyn), **Port Jersey** (Bayonne), and the **Brooklyn Navy Yard**.
+- **Where the smuggled guns come from:**
+  - **Mainly: a customs holding warehouse** at the port, full of weapons seized off ships. One building, heavy loot, an obvious hotspot.
+  - **Sometimes: hidden in containers** among ordinary cargo. **Shipping manifests** (paper items found around the yard and in offices) name a container with "suspicious cargo"; reading one marks it on your map.
+  - _Not chosen for now:_ the outbreak arriving by ship. Lore may still use the ports.
+- **Opening containers takes bolt cutters** (see below). Cutting is loud, which draws zombies (§8) and players.
+- **The yard as a place:** stacked containers form a maze with tight lanes, climbable stacks and long sightlines; climbable **gantry cranes** serve as sniper perches and landmarks; **dockworker zombies** (hard hats, hi-vis vests) drop tools (§8 variants); reachable by water.
+- Most containers hold ordinary cargo (clothes, electronics, canned food). Guns are the rare jackpot.
+- Opened containers stay open until the central economy resets them.
+- **Smuggled guns** (gun roster): the AK family, Saiga-12, Uzi, MAC-10, Scorpion, Vector.
+
+### Bolt cutters
+- **A rare tool, not a top-tier raid tool**, so the port yards aren't locked to almost everyone.
+- Opens container padlocks and seals.
+- **Other uses: yes, to be designed.** **Decided:** freeing bikes from bike-share docks (§16). _Ideas:_ padlocks on gates, lockers and storage units; chain-link fences; the locks on roll-down store gates (bodegas, shops); chained doors; freeing a restrained player (§7); removing steering-wheel locks (§16).
+
+### Guns are rare in NYC
+- The city has very few gun stores, so guns mostly come from **police and military** sources.
+- **Guns can also turn up in apartments and houses, but very rarely.** The rate varies by neighborhood: **neighborhoods with higher crime rates have more** than, say, Manhattan. _Exact rates: TBD; the developer doesn't have exact statistics._
+  - _Note (analysis):_ tying gun rates to specific real neighborhoods by crime data can come across as stereotyping the people who live there, and draw criticism. Safer: keep the difference modest, never label neighborhoods in-game, and treat the rates as hidden tuning.
+- Consequences: melee matters early, guns are valuable, and police stations and military sites become PvP hotspots.
+
+### Loot tiers by area
+- **Spawn neighborhoods:** low-tier loot.
+- **Better loot in dangerous places:** Manhattan's core, military sites, and the boat-only islands (Rikers, Governors Island).
+
+### Loot respawning: central economy (DayZ-style)
+- The server tracks how many of each item exist in the world and respawns items when the count drops. Rare items stay rare.
+- Loot inside a claimed base's area doesn't respawn (§9).
+
+### Rarity: 5 tiers
+| Tier | What's in it |
+|---|---|
+| Common | _Examples, set item by item later:_ food, clothes, basic tools |
+| Uncommon | _Examples:_ medicine, building materials |
+| Rare | Lower-tier guns |
+| Very rare | Higher-tier guns |
+| **Extremely rare** (top tier) | **Raid tools, explosives, the antiviral, the machine gun, the .50 cal**, etc. |
+
+- **Gun types and tiers separate rare from very rare.**
+- _The top tier's name is a working name._
+
+### Decay
+- Food rots, batteries run down, and items dropped on the ground despawn after a while, which keeps the server clean.
+
+### Open items
+- Gun spawn rates in homes, by neighborhood type.
+- Which item goes in which rarity tier (with weapons and crafting).
+- Name of the top rarity tier.
+- Bolt cutters: which other uses.
+
+---
+
+## 13. Weapons & attachments
+
+### Weapon families
+| Family | Examples | Where found (§12) | Rarity |
+|---|---|---|---|
+| **Melee** | Pipe, bat, crowbar, kitchen knife, machete, fire axe, sledgehammer | Everywhere | Common to uncommon |
+| **Pistols, revolvers** | Police 9mm, revolvers | Police; homes (very rarely) | Rare |
+| **Shotguns, hunting rifles** | Pump shotgun, bolt-action | Police, homes | Rare |
+| **Military rifles** | Assault rifles, marksman rifles, sniper rifles | Military sites | Very rare |
+| **Bows, crossbows** | Recurve bow, crossbow | Sporting goods, crafting | Uncommon to rare |
+
+- **Throwables:** bottles and rocks (to distract zombies), molotovs (crafted), grenades (extremely rare, military).
+- **Fictional names:** guns look like real models but have made-up names, which avoids trademark trouble.
+
+### Gun variety: vast
+- **A vast selection of guns, even if many are rare or hard to find.** Deep gun customization is a core feature of NYZ.
+- _Analysis:_ every gun needs a model, first- and third-person animations (reloads, jams), sounds and attachment fits. That makes guns the biggest art and animation cost in the game for a solo developer. **Practical approach:** build the roster on shared **platforms** (an AR-style family, an AK-style family, a pistol family, etc.) that share animations and rails, so variety comes from variants and customization. Ready-made weapon packs from Fab can fill gaps.
+
+### Noise
+- Gunshots attract hordes (§8). From loudest to quietest: shotgun, rifle, pistol, suppressed, then bows and melee.
+- So **melee and bows are the main tools against zombies**, and firing a gun is a choice with consequences.
+
+### Melee: quiet, and the core of early survival
+- Light and heavy attacks, using stamina.
+- **Shove** pushes zombies back, for crowds (Zomboid-style).
+- **Stomp** finishes zombies on the ground. Head hits kill (§8).
+- One-handed versus two-handed melee follows the broken-arm and handedness rules (§7).
+
+### Ammo and magazines
+- **Magazines exist and tie into reach zones (§11):** magazines on the chest rig mean a fast reload; magazines in the pack mean you stop and dig.
+- **Refilling magazines is one action** using ammo from quick reach, not a bullet-by-bullet chore.
+- **Calibers: more than the ~6 first proposed**, because a vast roster needs them. _Suggested (to confirm): many guns share common calibers, around 10–12 in total, with color-coded ammo boxes and "fits:" tooltips so it stays easy to learn._
+- **Ammo crafting is an endgame recipe** (details with crafting).
+
+### Attachments: vast customization
+- **Slots:** optic (red dot, low zoom, sniper scope), muzzle (suppressor), underbarrel (grip, flashlight), stock, magazine (extended).
+- **Suppressors** cut the noise radius but don't make a gun silent (very rare). An **improvised suppressor** (crafted from a bottle or oil filter) breaks after a few shots.
+- **Ghillie wrap slot** on rifles and similar weapons, for camouflage. _Added by the developer._
+- **Rails vary:** different rail types fit more attachments, e.g. a one-sided rail versus a two-sided rail. More rail sides means more attachment slots. _Added by the developer._
+- Attachments fit by **rail type** (pistol or rifle), not by specific gun.
+- _Open:_ the full list of swappable parts (e.g., handguards that set the rail count, barrels, grips), and how to keep deep customization easy to learn. _Suggested:_ the UI only shows parts that fit, compatible slots light up, and there are ready-made presets.
+
+### Handling
+- **Recoil and sway.** Sway gets worse with stress (§7), hurt arms (§7) and low stamina.
+- **Jams:** the chance rises as condition drops (§12). Clearing a jam is a quick action.
+- **Bullet drop at long range** (rooftop shooting across avenues); **no wind**.
+- Damage hits body parts (§7); **armor per body part** blocks it (helmet: head; vest: torso).
+
+### Weapon skills stay non-combat
+- Skills (§6) cover handling, not damage: faster reloads, faster jam clearing, gun repair, crafting attachments.
+- **No "more damage" or "less recoil" skills**, in line with "no raw stat points" (§6), so PvP stays fair for new players.
+
+### Crafting ties
+- Recipes: bows, arrows, molotovs, improvised suppressors, upgraded melee (nail bat, spiked pipe).
+- **Crafted pipe shotgun:** unreliable, loud, short-ranged. A last-resort gun that doesn't make real guns any less rare.
+- **Ammo crafting: endgame.**
+
+### Condition and repair
+- Weapons wear down with use. Cleaning kits and repair kits restore them, but never back to Pristine (§12).
+
+### Open items
+- Gun roster: **draft v2** in [docs/weapons/gun-roster.md](weapons/gun-roster.md): 56 guns on 19 platforms, 3 oddities, 13 calibers. Waiting for final sign-off. Smuggled guns come from the port container yards (§12).
+- **Decided:** **.357 guns also take .38** ammo (true to life, shown in the "fits:" tooltip). The **machine gun and the .50 cal are in the top rarity tier** (§12).
+- Full list of swappable gun parts and rail types; how the customization UI stays easy to learn.
+- Ammo crafting details (with crafting).
+
+---
+
+## 14. Crafting
+
+### Where you craft: three levels
+| Where | Examples | Needs |
+|---|---|---|
+| **By hand** (anywhere) | Molotovs, improvised suppressor, nail bat, sawed-off (with a hacksaw), splints | Nothing, or a hand tool |
+| **Workbench** (placed at your base) | Bows and arrows, pipe shotgun, building pieces (tiers 1–2), repair kits, base furniture | A built workbench |
+| **Specialty stations** | **Gunsmith bench** (attachments, gun repair, endgame ammo), **cooking station** (meals), **welder** (tier 3–4 steel pieces), **sewing station** (bag repair, clothing) | Some need **power from a generator**. Generators are loud, which draws zombies (§8) |
+
+### What needs a recipe
+- **Every real crafting recipe costs recipe points** (§6). **Simple recipes are very low level and very low cost.**
+- **Everyday actions aren't recipes, and every character can do them:** e.g., boiling water, using a shirt as a bandage. Anything that's an action rather than making something.
+- **The crafting menu shows every recipe.** Ones you haven't learned are greyed out with "learn at level X", so you can always see what's possible.
+- **New characters start with 5–10 recipe points** (exact number: tuning). **All the basic recipes cost 1 point each**, so a fresh spawn can learn splints, a campfire, a torch and similar right away.
+
+### Materials
+- **About 12 core urban materials**, possibly more later: wood, scrap metal, cloth/rags, nails, duct tape, pipe, plastic, glass bottles, electronics, chemicals, fuel, mortar/cement.
+- **Sources:**
+  - **Taking things apart:** furniture gives wood, cars give scrap metal, clothes give rags, and **electronics like computers give some scrap metal and some electronics.** Needs tools (saw, crowbar, wrench).
+  - **Trees give wood.** Some areas, like parks, have a lot of them.
+  - **Industrial sites and construction sites:** bricks, concrete, mortar, steel, and welders.
+- Building materials match the base tiers (§9): wood for tier 1, sheet metal for tier 2, brick and concrete blocks for tier 3, steel for tier 4 (needs the welder and power).
+
+### What crafting can pull from
+- **At your base:** your inventory **plus storage containers within a few meters.**
+- **Away from your base:** your inventory **plus items on the ground right around you.**
+
+### Time, movement, noise, queues
+- **Crafting takes time.** Mostly you stand still, but **anything that could realistically be done while walking can be done while walking.**
+- **Loud work makes noise** (hammering, sawing, welding, the generator), following the building-noise rules (§9). **Small recipes make no noise.**
+- **Station crafts can be queued** and keep going while you're nearby (Ark-style).
+
+### Crafted item condition
+- **Depends on your tools:** a worn saw makes a worn bow.
+- **"Craftsman"** (a non-combat skill, §6) makes crafted items come out one condition level higher.
+
+### Items promised by other systems (for now)
+| Item | How |
+|---|---|
+| **Journal** (§6) | A notebook (common loot: bodegas, schools, offices) plus a pen. Writing in it is an action, not a recipe |
+| **Bag repair** (§11) | A sewing kit fixes ripped seams by hand; the sewing station does it better |
+| **Improvised suppressor** (§13) | A bottle or oil filter plus duct tape, by hand |
+| **Pipe shotgun** (§13) | Pipe, nails, a spring and duct tape, at the workbench |
+| **Ammo crafting** (§13, endgame) | Gunsmith bench with a **reloading press**, using **spent brass casings** (picked up after firing), primers (rare loot), gunpowder and lead from scrap |
+| **Water** (§7) | Rain collectors; boiling over a fire (an action); purification |
+| **Comfort items** (§7, mood) | Beds, couches, radios, made at the workbench |
+
+### Clan crafting
+- Clanmates can use each other's stations. **Recipes belong to each person**, so the clan's medic makes the medicine.
+
+### Farming
+- Gets its own section later. NYC rooftop gardens and community gardens fit the setting.
+
+### Open items
+- Which crafts can be done while walking.
+- Full recipe list per station.
+- Materials beyond the core 12; generator fuel.
+
+---
+
+## 15. Clans
+
+### Size and alliances
+- **Cap: 10 members by default; a server setting.** With 250–300 players, unlimited clans turn into "zergs" that run the server.
+- **No formal (in-game) alliances, for now.** **Informal alliances agreed by voice are fine** and don't break any rules.
+
+### Creating and joining
+- Anyone can create a clan from the menu for free, and invite players who are nearby.
+- **Leaving a clan starts a 12-hour cooldown** before joining another, so nobody can hop into a clan for access and then raid it from inside.
+
+### Ranks
+| Rank | Can |
+|---|---|
+| **Leader** | Everything: invite, kick, promote, disband, place the claim item |
+| **Officer** | Invite, build, demolish, change door codes, officer-only doors and storage |
+| **Member** | Build, use stations, beds and clan-wide doors and storage |
+
+- The leader can switch a few permissions per rank (e.g., "members can demolish"). No custom rank trees.
+
+### Doors and storage by rank
+- **When an officer or the leader sets a code lock, they choose who can open it freely:** **everyone in the clan**, or **officers and above**. Clanmates at that level open it without typing the code.
+- **The same applies to storage** containers.
+- The code itself works like any code lock: anyone who knows it can open it, so it's also how to let an outsider in.
+
+### What clanmates share
+- Door access and storage (above), building rights in the claim area (§9), beds and sleeping bags (§10), crafting stations (§14).
+- **Mood bonus near clanmates** (§7).
+
+### Seeing each other
+- **Name tags only in line of sight**, not through walls. _May change._
+- **Clanmates' positions show on the map**, plus shared map markers.
+- _Minimap: undecided._
+
+### Friendly fire
+- **On by default**, with a server setting to turn it off.
+
+### Talking
+- **Proximity voice chat** (DayZ-style): anyone near you hears you, enemies included.
+- **Long-range voice needs a walkie-talkie** (an item that runs on decaying batteries, §12).
+- **Clan text chat works anywhere.**
+
+### Clan identity: graffiti tags
+- Each clan designs a **tag** (emblem) that players **spray-paint on walls** with spray cans, marking bases and territory. Cosmetic only.
+
+### Leaving or getting kicked
+- Access ends instantly (doors, storage, beds). Whatever they put in clan storage stays with the clan.
+
+### Solo players
+- **Solo play stays viable:** offline raid protection (§9) and small bases. Groups have an edge, but solo isn't a punishment.
+- **Maybe:** stronger offline protection for solo players (e.g., less damage taken, or protection starting sooner). _Not decided._
+
+### Open items
+- Minimap: yes or no.
+- Stronger offline protection for solos: yes or no, and how much.
+
+---
+
+## 16. Vehicles, boats & helicopters
+
+### The streets are jammed
+- Abandoned cars clog most streets, bridges and tunnels. Main avenues have a few passable lanes; side streets are often blocked.
+- **Driving means planning a route.** Cars don't dominate a city built for walking, and bikes stay valuable.
+- **Heavy vehicles can push small wrecks aside.** Big jams stay put.
+
+### Land vehicles
+| Vehicle | Why | Rarity |
+|---|---|---|
+| **Bicycle** | Quiet, no fuel, fits through jams | Common |
+| **E-bike, e-scooter** | Faster than a bike, quiet, runs on a battery | Uncommon |
+| **Motorcycle, dirt bike** | Fast, weaves through jams, **loud** | Rare |
+| **Sedans, yellow taxi** | Basic cars. **Several sedan types**, not one | Uncommon |
+| **SUVs, police cruiser** | Tougher; police ones have a light bar. **Several SUV types** | Rare |
+| **Van, box truck** | Big storage, slow, can push wrecks | Rare |
+| **Ambulance** | Medical loot inside | Rare |
+| **Military Humvee** | Armored, pushes wrecks | Very rare |
+
+### Bike-share docks
+- Bike-share stations (Citi Bike-style, made-up name) all over the city, with **regular bikes and e-bikes** still locked in their docks.
+- **Bolt cutters free them** (§12).
+
+### Charging e-bikes and scooters
+- **Generator** at base (§14).
+- **Also (confirmed):** **solar panels** as a quiet but slow alternative to the loud generator; **power banks**; charging from a running car; some bike-share docks still trickle-charging from their solar panel, making them contested public charging spots.
+
+### Keys, hotwiring and locks: a modern setting
+- **Keys** turn up in the vehicle, in nearby homes or on nearby zombies.
+- **Not locked to you automatically.** Locking a vehicle takes a **lock system you have to make or install.**
+- **Once a vehicle is hotwired, anyone can start it** (until someone locks it).
+- **Modern setting: most modern cars can't be hotwired physically.** They're started through tech instead:
+  - **An advanced OBD2 scanner** (key programmer) **can make keys** for a car.
+  - **A hacking device starts cars without a key.**
+- **Details (confirmed):** older cars hotwire physically (a Mechanics skill, §6); the key programmer needs a blank key fob (dealerships, locksmiths, auto shops); the hacking device is very rare; a key-cutting machine (hardware stores, locksmiths, needs power) copies existing keys for clanmates; locks: a **steering-wheel lock** (cheap; bolt cutters or a hacksaw remove it) and an **immobilizer with an alarm** (crafted from electronics; tampering sets off the alarm, which pulls zombies).
+
+### Parts: DayZ-style, but parts are easier to find
+- **Battery, spark plug, radiator, tires, headlights, engine, fuel.** Getting a car running **should be hard.**
+- **Parts are not as hard to find as in DayZ:** salvage from the thousands of wrecks, auto-parts stores, mechanic shops.
+- _Suggested:_ a vehicle status panel shows which parts are missing or broken, so it stays easy to learn.
+- Repairs use repair kits and Mechanics recipes (§14).
+
+### Fuel
+- Gas stations, and **siphoning from wrecked cars** with a hose.
+
+### Noise (hearing is the zombies' main sense, §8)
+- Loudest to quietest: motorcycles, cars and trucks, e-bikes, bicycles (near silent).
+- **Car alarms:** bumping or hitting some parked cars sets off their alarm and pulls zombies.
+
+### Zombies and vehicles
+- Running zombies over **damages your vehicle**.
+- **Hordes can surround and stop a car.**
+- **Zombies can pull you off a bike or motorcycle.**
+
+### Vehicle storage
+- Trunks and cargo areas use the **same cutaway packing as bags** (§11), each vehicle with its own trunk outline.
+
+### Vehicle customization: extensive, in tiers like building
+- **Tier levels similar to base building (§9).**
+- **Engine upgrades:** mostly durability, some speed and power.
+- **Armor is the main show.**
+- **Armor (confirmed):** pieces like window grates (stop zombie grabs, some bullets), ram plows (push bigger wrecks, which matters on jammed streets), wheel guards and door plates; tiers from scrap and plywood up to welded steel plate (welder and power, §14); armor adds weight, so the vehicle is slower and burns more fuel; counters are the .50 cal, explosives and molotovs; clan graffiti tags as car paint (§15).
+
+### Boats
+| Boat | Why | Rarity |
+|---|---|---|
+| **Kayak, canoe** | Silent, slow, little storage | Uncommon |
+| **Rowboat** | Silent, more storage | Uncommon |
+| **Inflatable with an outboard motor** | Faster, uses fuel, loud | Rare |
+| **Civilian boats, 10–20+ ft** (from marinas) | Bigger and faster; **harder to repair** | Rare |
+| **Speedboat, police harbor boat** | Fast, loud, big storage | Very rare |
+
+- Found at **marinas, boathouses** and the ports (§12). NYC has several marinas with 10–20+ ft civilian boats.
+- **Civilian types (confirmed):** center-console fishing boat, bowrider, cabin cruiser, pontoon boat, jet ski.
+- **Zombies don't swim:** they won't follow you into deep water. Water is safe from zombies, not from players.
+- **Swimming is possible but costly:** you get soaked (body temperature, §7), and anything not in a dry bag gets wet (§11).
+- _Maybe:_ strong currents in the East River at Hell Gate.
+
+### Helicopters: in from launch
+- **In the game from launch, extremely rare to find, and even harder to repair.**
+- _Analysis / to decide:_
+  - Where: NYC's real heliports (Downtown Manhattan, East 34th Street, West 30th Street), hospital helipads, and the police aviation base at **Floyd Bennett Field** (inside the map).
+  - Types: e.g., small civilian, tour helicopter, news helicopter, police; a military one would be the rarest.
+- **Rooftop bases that can't be reached on foot are allowed** (decided). The developer's reasoning:
+  - Few buildings without a helipad have room to land a helicopter, and **most roofs have clutter** (AC units, water towers, antennas), which makes landing risky.
+  - **If the clan loses its helicopter, they're stuck:** they can only respawn up there, with no other way down or back.
+  - _Analysis:_ such a base can only be raided by another helicopter owner, or with explosives or a .50 cal from a neighboring roof. Helicopters being extremely rare keeps these bases rare too.
+  - **Noise:** a helicopter is the loudest thing in the game and should pull zombies across a wide area.
+  - **Server cost:** a cap of a few per server.
+  - Flight controls simple enough for an average player.
+
+### Server limits
+- **A cap on vehicles per server and per clan.**
+- **Abandoned vehicles despawn** after X days unless inside a claimed base (your garage).
+
+### Open items
+- Car customization: exact tier materials.
+- Hell Gate currents (maybe).
+- Deeper detail for keys, locks, charging, armor and boats comes when each is built.
+- Helicopters: types, how many per server, flight controls.
+- Vehicle caps and the despawn timer (X).
+
+---
+
+## 17. PvP rules
+
+### Anyone, anywhere, anytime
+- **Full PvP everywhere, full loot.** Anyone can attack anyone, anywhere, at any time, and everything you carry can be looted (§10).
+- _Not adopted:_ PvE or "PvP zones" server types.
+- **The one exception: safe zones** (below).
+
+### Safe zones with trading NPCs
+- **Safe zones with trading NPCs, where nobody can be hurt.**
+- Details (locations, size, rules at the edges) are designed with trading.
+
+### Surrender, restrain, rob (builds on knock-outs, §7)
+- **Hands-up gesture** to surrender, or to show you're friendly.
+- **Zip ties, handcuffs or rope** restrain a knocked-out or surrendered player. You can then search them (hidden pockets take longer, §11), **escort them** (they walk where you lead), or let them go.
+- **Freeing:** a knife cuts zip ties and rope; bolt cutters cut cuffs (§12).
+- **Anti-griefing:** a restrained player can **struggle free after about 10–15 minutes.**
+
+### Combat logging
+- **While you're in combat, or within 5 minutes of it, "quit to menu" is greyed out** and can't be clicked.
+- **Damage from a clanmate doesn't count**, so friendly fire (§15) doesn't lock you in.
+- **"Combat" means dealing damage to, or taking damage from, another (non-clan) player.** Fighting zombies doesn't count.
+- **Force-quitting** (Alt-F4, pulling the plug) during that window doesn't help: **the character stays in the world until the 5-minute combat timer runs out, then for the regular 30-second leave timer (§10) on top.**
+
+### No kill feed, no killer names
+- No kill feed. **The death screen shows only how you died** (e.g., "gunshot to the head"), never who did it. Strangers stay anonymous; only clanmates get name tags (§15).
+
+### No karma or bandit system
+- No hero/bandit meter or bounties. Reputation comes from how players behave and from voice chat.
+
+### First person and third person
+- **Server setting: "first person only" or "both".** Official servers offer both kinds. (Answers the open question from §3.)
+
+### Anti-cheat
+- Server-authoritative design (§3) plus **Easy Anti-Cheat** (free through Epic Online Services, made for Unreal).
+
+### Already decided elsewhere
+- Raiding (§9): hard-to-find tools and explosives, offline protection by default, raiding is loud.
+- Fresh spawns (§10): only minimal loading protection; low-loot spawn neighborhoods mean they aren't worth hunting.
+
+### Open items
+- Safe zones: see §18.
+
+---
+
+## 18. Trading, economy & safe zones
+
+### Currency
+- **A standard replacement for the US dollar**, the way modded DayZ servers use rubles. A physical item you carry, so it can be looted when you die (§17).
+- _Not chosen:_ cigarettes, batteries or scrap metal as currency.
+- **Name: an invented word, not an existing one.**
+  - **Decided: "Sanctos Notes"** ("notes" in everyday talk). **The name comes from "sanctuary": the safe zones' own money.** It also has a deeper lore meaning (see the lore bible).
+  - _Not chosen:_ Boros, Quarants, Zollars, Scrip.
+
+### Safe zones: 6–7, in unremarkable places
+- **No famous or well-known places.** Grand Central, Yankee Stadium, Barclays Center and Citi Field are **for combat and bases**, not safe zones.
+- **Two kinds of site:**
+  - **Big warehouses**, like parcel-delivery or online-retail distribution centers, whose giant open rooms hold the **main traders**. (Fictional company names, no real brands.)
+  - **Random tall buildings** in the city with good space for a safe zone and **good sniping positions** for the overwatch.
+- **About 6–7 in total**, because the map is so big: roughly one per borough plus 2–3 more, **including one in New Jersey** and **a small one on the Staten Island piece.**
+- **Each safe zone is named "Sanctuary" plus a number** (Sanctuary 1 to 7) (decided 2026-10-27; who runs them is in the lore bible).
+  - **Numbered in the order they opened**, so Sanctuary 1 is the oldest.
+  - **One number is missing: a Sanctuary that fell.** Its ruins are a lore area and point of interest (§5). With 6–7 active zones plus the fallen one, the numbers run to 7 or 8 (to confirm).
+- NPC guards and walls keep zombies out. **In the lore, the guards are mostly ex-military** (including soldiers who had been contracted to the Force), **ex-police and the like** (decided 2026-10-27).
+- **Several exits** per zone.
+- _Exact sites and how many: TBD._
+
+### Safe zone rules
+- **No damage inside, ever** (§17).
+- **Hostile marking:** shooting someone near a safe zone marks you **hostile**, and the guards won't let you in for a while (about 10 minutes).
+- **Sniper overwatch against campers:**
+  - **NPC snipers** are posted at each safe zone and watch for players **camping within a set distance** of it.
+  - They start with a **warning shot and a loudspeaker message**. The camper gets **5 seconds to leave** the area.
+  - After that, the snipers **target the camper**. Their aim is elite: they **can miss, but rarely**, if you're in their line of sight.
+  - **Elite in gameplay, above average in the lore:** in the story they're mostly ex-military whom the group kept training. The game makes them elite so the anti-camping rule works (decided 2026-10-27).
+  - **What counts as camping:** staying inside a ring around the zone (about **100–150 m**) for more than **about 60 seconds**; the timer runs faster if you're prone or aiming down sights. **Someone just passing through, or waiting for a friend with no ill intent, never gets shot.**
+- **No building near safe zones** (a set radius).
+
+### Bank and storage units
+- **Two-step access, like a card and its PIN:**
+  - A **physical item linked to your character, or to a clan account** (the "card").
+  - **Plus a PIN.**
+- **A lost or stolen card is useless without the PIN.** A **replacement card** is sold at any safe zone and cancels the old one. **The fee is expensive**, so it's worth not losing the card or leaving it at base before a safe-zone trip.
+- **Money: one account across all safe zones.** Deposit in Brooklyn, withdraw in Queens.
+- **Items: a storage unit at each safe zone**, mainly so **solo players** who can't grind out a base still have somewhere safe for a few things.
+  - About **50–100 lbs** of items, **for rent** (a recurring fee). Rent keeps money leaving the world and stops abandoned units piling up.
+  - **Items stay where you stored them:** you can only take them out at that safe zone. Only money moves between locations.
+  - **A storage unit is a service in the safe zone's building** (with the bank), not a room: you can't physically live in it.
+
+### NPC traders
+- **Types:** general (food, clothes, basic tools), medical, weapons and ammo, building supplies, mechanic (vehicle parts, bikes, maybe an old car at a steep price).
+- Each safe zone has some of these, not all, so different zones are worth visiting.
+- **Never sell the top tier** (raid tools, explosives, the antiviral, the machine gun, the .50 cal). Those stay loot-only.
+- **Very rare items: tiny stock, steep prices.**
+- **Prices move with supply** (tied to the central economy, §12): selling lots of something drops its price; low stock raises it.
+- **Services:** repairs (never to Pristine, §12), key copying (§16), possibly paid information such as map intel.
+
+### Valuables
+- A loot category whose main use is selling: jewelry, watches, phones, laptops.
+- **Point of interest: the Diamond District** (47th Street, Manhattan), with high-value valuables and a hotspot to match.
+
+### Player-to-player trading
+- **Inside safe zones:** a **secure trade window** (both put items in, both confirm).
+- **Outside safe zones:** drop-and-pick-up, DayZ-style. Risky, so trust matters.
+- **Player shops:** a craftable **vending machine** at your base sells items for currency while you're offline. It can be raided like any base part.
+
+### Open items
+- Safe zones: exact sites and count (6–7).
+- Storage units: rent amount and period; exact weight limit (50–100 lbs).
+- **Maybe: rare roaming military patrols** in the world, what's left of the Force's military (the developer's idea, 2026-10-27). How they treat players: TBD.
+
+---
+
+## 19. Weather, day/night & seasons
+
+### Day/night cycle
+- **3 real hours of day, 1 real hour of night** (a 4-hour cycle).
+- **Real darkness:** the power is out, so there are no streetlights. Light comes from the moon (with phases), fires, generators and flashlights. A lit window at night gives a base away.
+
+### Night
+- **Zombies see worse at night** (§8). More of them roam the streets at night, so moving in the dark is a gamble.
+- **Flashlights and weapon lights give you away** to other players.
+- **Zombies drawn to flashlights: leaning yes** (2026-10-27): zombies can see, so a flashlight will probably draw them. **Final once the lore decides what the infection is** (a virus, a fungus, etc.). The earlier concern still stands: it could make nights much harder than intended, so how strongly a light pulls them gets tuned in the zombie deep pass. _Not adopted: Claude's "no special pull"._
+- **Night vision goggles:** military, **very rare.**
+
+### Weather types
+| Weather | Effect |
+|---|---|
+| **Clear** | Normal |
+| **Overcast** | Darker nights (no moon) |
+| **Rain** | Soaks you (body temperature, §7), fills rain collectors (§14), **muffles noise** so sounds carry less far, cuts sight a little |
+| **Thunderstorm** | Like rain; **thunder masks gunshots** for a moment |
+| **Harbor fog** | Rolls in off the water; **heavy sight loss** for everyone, worst near the rivers and harbor |
+| **Snow** (winter) | Cold, slows movement, **leaves footprints** others can follow (Survival tracking, §6) |
+| **Blizzard / heavy snowfall** (winter) | **Rarer than snow.** Very cold, slow going, very low visibility. _Added by the developer._ |
+| **Heat wave** (summer) | You get thirsty much faster |
+
+### Seasons
+- **Spring, summer, fall and winter cycle**, each about **1–2 real weeks** (a server setting; a server can lock one season).
+- Seasons set the temperature range and the weather mix.
+- **Winter is the hard season:** clothing, shelter and fire matter much more.
+- Seasons tie into farming later (growing seasons).
+
+### Rare weather events
+- **Nor'easter:** a rare winter storm. Heavy snow, very cold, almost no visibility. Everyone hunkers down, which makes it a good time to raid.
+- **Hurricane with flooding** in low areas (Red Hook, Lower Manhattan, the Rockaways, as during Sandy). _In._
+  - _Analysis:_ water levels that change across the map are a big technical job (flooded streets and ground floors, then draining). Worth prototyping early to see what Unreal's water tools can handle.
+
+### Knowing the weather and the time
+- **HUD: only a general feel** (e.g., a weather icon and "cold" / "hot").
+- **Exact time and temperature need an item:** a **watch** shows the time; a thermometer (or a watch that has one) shows the temperature.
+- **Forecasts: two sources.**
+  - **Barometer** (a found item): falling air pressure means a storm within hours. The realistic way people forecast without satellites; no broadcaster needed.
+  - **Safe-zone radio:** the organized group running the safe zones (§18) broadcasts short-term warnings from someone reading a barometer and the sky. Doubles as a lore channel.
+  - _Not chosen:_ automated stations reporting current conditions; no forecasts at all.
+
+### Server cost: low
+- The server only tracks the weather state. Rain, fog and snow visuals are drawn on each player's own PC.
+
+### Open items
+- Zombies drawn to flashlights: leaning yes; confirm once the infection itself is designed (lore).
+
+---
+
+## 20. Servers: persistence, wipes & admin
+
+### Wipes
+- **Official servers wipe every 6 months to a year.** **Progress shouldn't feel like it was for nothing.** _The interval may change after release, based on player feedback._
+- Not tied to the season cycle (§19), which turns over every 1–2 months.
+- _Rejected:_ wiping once per in-game year (every 1–2 months), and never wiping.
+
+### What a wipe clears and what it keeps
+| Wiped | Kept |
+|---|---|
+| Bases, storage, buried stashes | Character appearance |
+| Items, vehicles, helicopters | Clan name and graffiti tag design |
+| Bank money and storage units | Stats and achievements (e.g., "survived 3 winters") |
+| **Levels and recipes** | |
+
+- Why levels are wiped too: everyone restarts equal, and the journal (§6) plus the catch-up boost make re-leveling quick.
+
+### One server per character
+- Your character lives on one server. **No shared character across servers**, which would let players loot an empty server and carry the gear into a busy one.
+- You can play on several servers with a separate character on each.
+
+### Restarts
+- **Every 6–12 hours**, with warnings at 15, 5 and 1 minutes.
+- **Restarts don't count as combat logging** (§17).
+- **Everything persists through restarts:** bases, buried items, vehicles, bodies until their timers run out.
+
+### Saving and crashes
+- Continuous saving; important changes (building, trades, bank deposits) save immediately. **After a crash, the rollback is seconds to a minute at most.**
+
+### Clutter control
+- Base decay when nobody visits (§9), abandoned vehicles despawn (§16), dropped items despawn (§12), bodies last 2 hours (§10), containers reset through the central economy (§12), storage units cost rent (§18).
+- **Unused world vehicles move to where players are** _(added by the developer)_: each vehicle the world spawned has a **radius (a few blocks, not a tiny one) and a timer**. If **no player enters that radius before the timer runs out, the vehicle respawns somewhere else.** This stops vehicles piling up in empty parts of the map. _Interpretation:_ applies to world-spawned vehicles nobody has used yet; vehicles players own follow the abandoned-vehicle rule (§16).
+
+### Official and community servers
+- **Official servers** run the default settings and the official wipe interval.
+- **Community servers** can be rented and change the server settings, including the wipe interval or "never wipe".
+- _Later:_ mod support (a big job in Unreal; not in the launch plan).
+
+### Server settings in one place
+- All server settings go into **one settings file** with documented defaults when we build: player cap, first-person only, clan cap, friendly fire, offline raid protection mode, day/night length, season length and season lock, vehicle caps, wipe interval, and so on.
+
+### Admin tools
+- Kick and ban, spectate, **logs** (kills, raids, trades) for disputes and catching cheaters, and an item spawner for community events.
+
+### Open items
+- Vehicle relocation: radius size and timer length.
+- Restart interval within 6–12 hours.
+
+---
+
+## 21. Character creation
+
+### Appearance
+- **Presets plus a few sliders:** body type (two base bodies), face presets plus a few sliders, skin tones, hair, facial hair, tattoos.
+- **Age:** young adult to older adult. Cosmetic only.
+- **Voice:** a few voice sets per body type (grunts, pain, the hands-up callout).
+- No deep face sculpting: expensive to build, and in first person nobody sees your face much.
+- **Appearance carries over through wipes** (§20).
+
+### Handedness
+- Left- or right-handed; players aren't told why it matters (§7).
+
+### Occupation: an NYC job before the outbreak
+- Each occupation gives **a couple of free recipes or skills (worth about 2–3 points) and one small starting item. Never combat bonuses** (§6).
+- **The occupation is the character's "trait":** its identity comes from the skill it gives. There's no separate traits system.
+- **You pick your occupation again each time you start a new life** after dying.
+- _What each one gives will be refined later._ Starting list:
+
+| Occupation | Free knowledge | Starting item |
+|---|---|---|
+| Nurse | Basic medical recipes | Extra bandages |
+| Mechanic | Vehicle repair basics, hotwiring older cars (§16) | Screwdriver |
+| Construction worker | Basic building pieces | Hammer |
+| Line cook | Cooking recipes (better meals for mood, §7) | Kitchen knife |
+| Firefighter | Fire safety, forcing doors | Fire axe (may be too strong; refine) |
+| Bike messenger | Bike repair, faster bike handling | Bike lock |
+| Cab driver | Car handling, knows the streets | City map |
+| Subway worker | Knows the tunnels (subway map) | Headlamp |
+| Dockworker | Container yards (§12): opening seals faster | Work gloves |
+| Bodega owner | Better prices at traders (§18) | A little currency |
+| Unemployed | No free knowledge, but **+2 extra recipe points** | None |
+
+### Name
+- A character name, visible only to clanmates (§15). Strangers stay anonymous (§17).
+
+### Starting outfit
+- The starting kit is basic clothes (§10); **you choose its look** from a few civilian outfits (hoodie and jeans, work clothes, office clothes, track suit). Cosmetic only.
+
+### Open items
+- Refine what each occupation gives.
+
+---
+
+## 22. Farming, fishing & food sources
+
+### Where you can grow
+- **In the ground:** anywhere diggable (parks, backyards, empty lots, community gardens), the same ground rule as burying journals (§6).
+- **Raised beds and planters:** crafted and filled with **bags of soil** (hardware stores, garden centers). On **rooftops**, balconies or inside your base. Rooftop farming is the city-style way to farm.
+- **Community gardens** start with some overgrown crops and good soil: small contested spots.
+
+### Crops: about 8, tied to the food groups (§7)
+| Crop | Food group | Note |
+|---|---|---|
+| Tomatoes, peppers, leafy greens, squash | Vitamins | The easy fix for a poor diet |
+| Potatoes, corn | Carbs | Filling, store well |
+| Beans | Protein | **Dried beans from a bodega can be planted** |
+| Herbs | (cooking) | Make cooked meals better for mood (§7) |
+
+### Seeds
+- Found at garden centers, hardware stores and community gardens, plus dried food from groceries.
+- **Harvesting gives seeds back**, so a farm keeps itself going.
+
+### Growing
+- **Plant, water, harvest.** Plants show small icons ("needs water", "ready").
+- **Water:** rain does it (§19); otherwise a watering can with water from collectors (§14).
+- **Crops grow in real time, even while you're offline:** a few real hours to a day, depending on the crop.
+- **Compost** made from rotten food (§12 decay) speeds growth.
+
+### Seasons (§19)
+- Spring and summer: fast growth. Fall: slower, harvest time. **Winter: outdoor crops die from frost.**
+- **Greenhouses** (crafted) protect crops into the cold months.
+- **Endgame: indoor grow lights** grow food all year but **need power** (generator or solar, §14). A lit grow room shows from outside at night (§19).
+
+### Risks
+- **Crops outside your base can be stolen**, and **zombies trample** fields they wander through.
+- Rooftop and indoor farms are safer, at the cost of hauling soil and water up.
+
+### Mood
+- Tending a garden **eases boredom and stress a little** (§7).
+
+### Chickens
+- **Backyard chickens** can be found and kept in a crafted coop. They give **eggs (protein)**, need feed and water, and can be stolen or eaten by zombies.
+- _Maybe later:_ rabbits.
+
+### Fishing: yes
+- **Fishing in the rivers, harbor and off piers**, a protein source (Survival skill category, §6).
+- _Details to design:_ rods and tackle (sporting goods), bait, fish types, the best spots.
+
+### Wildlife and hunting: yes
+Ties to the setting: **wild animals have moved back into the overgrown city** (§5).
+
+**Prey**
+| Animal | Where | Gives |
+|---|---|---|
+| Deer | Parks, Bronx, Staten Island | Lots of meat, hide |
+| Wild turkeys | Parks, Staten Island | Meat, feathers (arrows) |
+| Geese and ducks | Parks, Jamaica Bay | Meat, feathers |
+| Rabbits | Parks, overgrown lots | A little meat |
+| Pigeons and rats | Everywhere | Desperation food |
+
+**Dangers**
+| Animal | Why |
+|---|---|
+| Feral dog packs | Former pets gone wild; the most common animal threat |
+| Coyotes | Packs, mostly at night |
+| Black bears | Coming down from the north through NJ and the Bronx; rare and very dangerous |
+| Bobcats | From the north; rare ambush hunters |
+
+- **Rare sightings:** **seals in the harbor** and **a beaver in the Bronx River**. World details, rarely seen.
+- **No zombie animals.** Animals run from zombies.
+- **What hunting gives:** meat (protein, §7), hides for leather (a leather jacket blocks bites, §8), feathers and sinew for arrows and bowstrings (§14).
+- **Gunshots attract zombies, so bows are the hunter's weapon** (§13).
+- **Tracking:** footprints in snow (§19) and blood trails, part of the Survival skill (§6).
+- **Hunting grounds:** the big parks (Central, Prospect, Pelham Bay, Van Cortlandt, Forest Park), Jamaica Bay and the Staten Island piece.
+- **Server cost:** animals use AI like zombies and count toward the same AI limits (§3).
+
+### Server limits
+- Crops and coops count toward the clan's building piece cap (§9).
+
+### Open items
+- Fishing details.
+
+---
+
+## 23. Lore
+
+**The full lore lives in [docs/lore/LORE.md](lore/LORE.md) (the lore bible).** This section is only a summary.
+
+- **Deep lore.** It shapes the map, the points of interest and several mechanics.
+- **Paused on 2026-11-08:** development starts now, and the developer will **revisit the entire lore later in development.** Lore-heavy content (points of interest, safe zones, radio broadcasts) is best built after that revisit. _Earlier plan:_ build the lore before development got far.
+- **No cutscenes.** Told through **clues in the world** and **random radio broadcasts** (Project Zomboid-style, adapted to a game that starts years after the outbreak).
+- **Origin (decided): it came from outside.** The whole world has fallen, with pockets of survivors and safe zones elsewhere, but most survivors in the city don't know what's going on outside. Direction: researchers came to NYC to study it, the city was walled off and held well for a while, then **it spread inside the walls because of the research**. **Plus a twist** (chosen; the details live only in the lore bible, since players are meant to uncover them).
+- **The city was governed by the Force: F.O.R.C.E., the Federal Office of Response and Containment of Epidemics**, a FEDRA-like government created by the federal government. **Its research agency and the military in the city were both under it**; the military built the wall. After the outside fell, it became independent. Military and National Guard sites in the game are what's left of that. **Today its military is far smaller** (many soldiers left once the infection spread inside the walls), and **no wall checkpoints are manned.**
+- **When:** the game starts in **year 8** after the outbreak. The city held for about two years, then fell in **year 2**, about **6 years** before the game.
+- **Survivors call the moment it got inside the walls "the [neighborhood] Breach"** (neighborhood TBD: NJ or the Bronx). "The fall" is the city's whole collapse that followed.
+- **Still to build:** the safe-zone group, the remaining names, the rest of the timeline, radio stations, the infection itself and lore areas (see the lore bible).
+
+---
+
+## Systems to design
+
+Each system gets its own section once we design it. Add or remove items as needed.
+Ticked = fully designed, nothing left open. Unticked but "decided" = the system is set, with open items still listed in its section.
+
+- [ ] Zombies: decided (§8); open items listed there
+- [x] Player survival stats: decided (§7); zombie infection in §8
+- [ ] Lore: paused (§23, [lore bible](lore/LORE.md)); to be revisited in full later in development
+- [ ] Loot & items: decided (§12); open items listed there
+- [ ] Weapons & attachments: decided (§13); open items listed there
+- [ ] Inventory: decided (§11); open items listed there
+- [ ] Crafting: decided (§14); open items listed there
+- [ ] Farming, fishing & food sources: decided (§22); open items listed there
+- [x] Wildlife & hunting: decided (§22)
+- [ ] Base building & raiding: decided (§9); open items listed there
+- [ ] Clans: decided (§15); open items listed there
+- [ ] PvP rules: decided (§17); open items listed there
+- [ ] Map & world: setting and scale decided, border at draft v2 (§5); regions and points of interest still to do
+- [ ] Character progression / skills: in progress (§6)
+- [ ] Vehicles, boats & helicopters: decided (§16); open items listed there
+- [ ] Weather, day/night & seasons: decided (§19); open items listed there
+- [ ] Trading, economy & safe zones: decided (§18); open items listed there
+- [ ] Servers: persistence, wipes & admin: decided (§20); open items listed there
+- [ ] Death & respawn: decided (§6, §10); open items listed in §10
+- [ ] Character creation: decided (§21); open items listed there
+
+---
+
+## Maybe later (parked ideas)
+
+Ideas the developer likes but that aren't planned for now. Each notes why it's parked.
+
+- **Visible handedness and intentional off-hand aiming.** Left-handed characters visibly hold weapons left-handed, and any player can deliberately switch to aiming off-hand as a tactic (e.g., around corners). _Parked because:_ it needs mirrored animations for every weapon, which is a lot more animation work. _Conflicts with:_ handedness being hidden from players (§7). If this is ever added, handedness stops being a secret.
+- **A smaller piece cap for bases at chokepoints** (bridges, tunnels, subway entrances). _Parked because:_ the other chokepoint inconveniences (hordes, faster decay) may be enough. Revisit if clans lock down too many chokepoints.
+- **Scars.** Serious wounds you survive leave visible scars until you die, a survival story told by your body (§21). _Parked because:_ nice to have, not a launch priority.
+- **Fragile items in bags.** Glass bottles or scopes with heavy things on top could break when you fall or take a hit. _Parked because:_ it adds a punishment on top of packing. Revisit if packing feels too easy.
+
+---
+
+## Open questions
+
+- Final game name? (NYZ is only the project codename.)
+- Is border draft v2 final (§5)? Still needing a real road: across Pelham Bay Park, and Fort Wadsworth to the Verrazzano. Which roads?
+- Exact land area of the map: needs coastline data. Current estimate in §5.
+- Can one UE5 server process hold 300 players plus zombies? Answered only by the load test (§3).
+- Which buildings are enterable? (NYC has about a million.)
+- Skill journal details: see §6 Open items.
+- Target zombie count per server?
+- Business model: buy-to-play, free, other?
