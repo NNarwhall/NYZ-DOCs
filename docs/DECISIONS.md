@@ -512,3 +512,30 @@ Format: **Decision**: why. _Rejected: alternatives considered._
 
 - **The box map is one plain level, with no World Partition and no landscape.** _Claude's call_ (how to build the agreed point 2, GDD §24). _Why:_ the server loads the whole map either way (World Partition's default on servers), and the test measures players and zombies, not map streaming. One level with all 15,900 boxes drawn as copies of one mesh is a single 3 MB file that loads in about 0.1 s. _Not chosen:_ World Partition (many small files plus streaming the test doesn't measure; the real NYC map will use it); a landscape (heavy terrain data for flat ground).
 - **Layout:** 25 × 25 km flat ground; boxes on a 200 m grid (50–150 m wide, 10–60 m tall); 5 dense hotspots of 64 boxes each with 10–15 m alleys, tagged "Hotspot" for the bot script; 500 player starts on street corners, one per bot in the 500 run. Built by `Tools/build_load_test_map.py` in the game repo with a fixed seed. Set as the default map for the game, the server and the editor's start. GDD §24 point 2 updated.
+
+## 2026-11-08: Load-test bots built (movement only)
+
+- **Each bot is its own copy of the game with no window or graphics, joined to the server like a player.** _Claude's pick_, stated before the developer said "Yes, here" (to building the bots in that session). _Why:_ the test's main question is the cost of sending updates to every connected player, and only real connections have it. _Not chosen:_ the server running the bots itself (far cheaper, hundreds fit on one PC, but no connections).
+- **Hotspot bots start in their hotspot** (_Claude's call_): half the bots join with `?Hotspot=HotspotN` and start on one of that hotspot's 81 alley crossings (tagged starts added to the map), 30 per hotspot, Hotspot1 first. _Why:_ walking there across the 25 km map would take 15–35 minutes every run. _Not chosen:_ bots walking to the nearest hotspot from a random start.
+- **Bare first version, movement only:** roamers walk the street grid to random corners up to 1 km away; hotspot bots wander the alleys; sprint about a third of the stretches, jump about every 10 s, new route when stuck for 3 s; 60 frames a second, like a player's PC. Shooting, items and containers wait for those systems. Run by `Tools/run_bots.ps1 -Count N` in the game repo.
+- **Server player cap raised from Unreal's default of 16 to 500**, for the test's 500 run. The real cap comes with the server pass.
+- GDD §24 point 3 updated.
+
+## 2026-11-08: Players see each other up to 500 m
+
+- **The server sends each player the other players within 500 m**, and nobody farther away. The developer: "500 m" (choosing between 500 m and 1 km). _Why it came up:_ Unreal's default is 150 m, found while building the bots; the server's cost grows with this distance, so the load test has to use the real game's number. A starting number, changed after the test if long-range shooting needs more. _Not chosen:_ 1 km; Unreal's default of 150 m (too short for a survival shooter). Set on the test character. GDD §3 updated; the open question is closed.
+
+## 2026-11-08: Bots run the packaged game
+
+- **The load-test bots run a packaged copy of the game, not the editor's program.** The developer: "Yes, package it". _Why:_ on the editor's program each bot used about 1.8 GB, so the PC fit only about 8; packaged, each uses about 450 MB, so about 20 fit with the editor open and 30 with it closed, which stage 1 needs. The server stays on the editor's program until the engine source build. The bot script refuses to start bots on a package older than the code, content or settings. GDD §3 and §24 updated.
+
+## 2026-11-08: Noclip in development builds
+
+- **Development builds allow cheat commands, such as noclip, on every server.** The developer: "generally a noclip is nice for development/testing". Uses Unreal's own `ghost` and `walk`, sent to the server with `ServerExec`; flying follows the camera at 20 m/s, 100 m/s with sprint. _Why on every server:_ the load-test server runs without the editor, where Unreal blocks cheats by default. Shipping builds never allow them. _Later:_ admin-only commands (GDD §20) replace this in the server pass, since anyone on a development-build server can use it. GDD §24 updated.
+
+## 2026-11-08: Iris on; how the load test measures the server
+
+- **Iris is turned on for the project** (follows GDD §24 point 5, "try Iris first"; the developer said "Yes, set it up" to this step). Epic's 5.8 release notes call Iris "production-ready for licensees in UE 5.8". The engine still ships it off, so `Config/DefaultEngine.ini` sets `net.Iris.UseIrisReplication=1` and `net.SubObjects.DefaultUseSubObjectReplicationList=1`. _Fallback:_ Replication Graph, only if Iris falls short in the test. Also needs the Iris plugin enabled in the project file; with only the setting, the server fell back to the old system.
+- **The server measures itself** (_Claude's call_): every 10 s it logs players, updates per second, slowest update, share of time under 20 a second, and data sent per player; `run_bots.ps1 -Stop` sums up the windows with every bot in, plus server CPU and peak memory, into `Saved/LoadTest/results.txt`. _Why:_ survives stopping the server and can be watched live. _Not chosen for now:_ Unreal's CSV profiler and Unreal Insights (much more detail, for finding the cause once a run shows a problem). GDD §24 points 5 and 8 updated.
+- **Test server and bots opt out of Windows' power throttling** (_Claude's call_, a bug fix): Windows 11 coarsened the test server's timer after about 50 seconds, holding it at 21.5 updates a second instead of 30 with no real slowdown. Reproduced with the window minimized; the fix is a standard Windows per-program setting, applied only when running as the server or a bot. GDD §24 point 8 updated.
+- **Iris's map grid widened to ±13 km** (_Claude's call_, a fix): its default ends at ±10.5 km and pins anything farther out to the edge, which would make far-apart players near the test map's edge look close. The real NYC map will need its own bounds. GDD §24 point 5 updated.
