@@ -539,3 +539,24 @@ Format: **Decision**: why. _Rejected: alternatives considered._
 - **The server measures itself** (_Claude's call_): every 10 s it logs players, updates per second, slowest update, share of time under 20 a second, and data sent per player; `run_bots.ps1 -Stop` sums up the windows with every bot in, plus server CPU and peak memory, into `Saved/LoadTest/results.txt`. _Why:_ survives stopping the server and can be watched live. _Not chosen for now:_ Unreal's CSV profiler and Unreal Insights (much more detail, for finding the cause once a run shows a problem). GDD §24 points 5 and 8 updated.
 - **Test server and bots opt out of Windows' power throttling** (_Claude's call_, a bug fix): Windows 11 coarsened the test server's timer after about 50 seconds, holding it at 21.5 updates a second instead of 30 with no real slowdown. Reproduced with the window minimized; the fix is a standard Windows per-program setting, applied only when running as the server or a bot. GDD §24 point 8 updated.
 - **Iris's map grid widened to ±13 km** (_Claude's call_, a fix): its default ends at ±10.5 km and pins anything farther out to the edge, which would make far-apart players near the test map's edge look close. The real NYC map will need its own bounds. GDD §24 point 5 updated.
+
+## 2026-11-09: Every load-test run measures the server's real cost
+
+- **Every run reports how busy the server's main thread is and its CPU over the measured windows**, not just updates per second. The developer: "yes, dont make this error again, include that test everytime. time is money". _Why:_ the server is capped at 30 updates a second and sleeps out the rest of each update, so the first stage 1 runs (10, 15, 20 bots, all at 30) couldn't show how cost grows per player and had to be redone. Built into the server's 10 s log line; `run_bots.ps1 -Stop` refuses to report a run without the cost numbers. _Not chosen:_ the earlier CPU figure averaged over the whole run, startup included. GDD §24 point 8 updated.
+
+## 2026-11-09: The server skips character animation
+
+- **Dedicated servers skip character animation, the body-part collision shapes that follow it, and the camera arm.** The developer: "Yes, turn it off" (Claude's suggestion). _Why:_ the 40-bot profile showed about 15% of the server's 44% going to animation and syncing those shapes, which nobody sees on a server. Players still see full animation. _Open for the shooting pass:_ whether hit checks need body-part shapes on the server; if so they come back, and their cost gets measured. _Not chosen:_ keeping them on for a worst-case test. GDD §24 updated.
+
+## 2026-11-09: Faster load tests; crowd versus player count
+
+- **The standard test is now a ramp** (_Claude's call_): one server, bots added 10 at a time, each size measured for 1 minute, a result line per size. The developer: "i dont havea all day ... i meant each one of these is costing a lot of time". _Why:_ the 10 s readings vary by only about ±1 point, so 3 minutes per size bought nothing, and restarting the server and every bot for each size was the rest. The ramp matched the separate runs in 4.8 minutes instead of about 16. _Not chosen:_ separate runs per size (kept possible with `-Count N` alone).
+- **Finding, not a decision:** cost grows both with the player count (about 0.33% of the main thread each) and with crowds (about 0.017% × crowd size squared); rough projection for 300 with 5 hotspots of 30 is about 180% of one main thread in this setup. GDD §24 point 6.
+
+## 2026-11-09: Quick network cost cuts tried, none kept
+
+- **Tried at 40 bots: moves at 20 a second, Iris range checks by grid cell, characters sent 20 times a second. None kept.** The developer: "okay lets cut character cost down, does that diminish quality anywherre?" None saved anything beyond the ±1 point noise (23.3% baseline; 23.5%, 24.4%, 23.9%), and each would have cost a little quality. _Next:_ real numbers from a dedicated server build (engine source), since the editor-program test server's overhead is the biggest unknown. GDD §24 point 6.
+
+## 2026-11-09: The project moves to the source-built engine
+
+- **Once compiled, the project uses Unreal 5.8.4 built from source instead of the launcher's.** The developer: "yes switch it, also will i still have the usual ue ui?" (yes: same editor). _Why:_ only a source build makes dedicated servers (real load-test numbers, stage 2 on cloud machines, launch), and two engines building one project overwrite each other's compiled code. _Not chosen:_ the launcher engine for editing plus a separate project copy for server builds. GDD §24 setup updated.

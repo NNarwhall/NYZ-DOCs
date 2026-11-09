@@ -1284,7 +1284,7 @@ Milestones in build order. Each system still gets its deeper design pass when we
 
 ### Setup (before milestone 1)
 - Visual Studio 2026 and Unreal 5.8.4 (launcher): installed 2026-11-08.
-- Unreal 5.8 built from source, needed for dedicated servers (§2): to do.
+- Unreal 5.8 built from source, needed for dedicated servers (§2): **in progress, 2026-11-09.** Source 5.8.4 at `C:\UE5.8.4 Raw\UnrealEngine-release` (same network version as the launcher's 5.8.4); the developer ran Setup.bat and GenerateProjectFiles.bat; compiling. **The project switches to the source-built engine once it's compiled** (the developer: "yes switch it"): the editor is opened from that engine (double-click `NYZ.uproject`) instead of the Epic launcher; same editor and UI. _Why:_ only a source build makes dedicated servers (needed for the real load-test numbers, stage 2 on cloud machines, and launch), and two engines building the same project overwrite each other's compiled code. _Not chosen:_ keeping the launcher engine for editing plus a separate copy of the project for server builds (two copies to keep in sync).
 - The UE5 C++ project: **created 2026-11-08.** A blank C++ project named NYZ (no starter content, raytracing off) at `C:\Game Dev Folder\NYZ\NYZ`, pushed to the [NYZ](https://github.com/NNarwhall/NYZ) repo with UE5 ignore and LFS rules (§4). The docs repo ignores that folder.
 
 ### Milestone 1: multiplayer foundation and an early load test (decided 2026-11-08)
@@ -1324,10 +1324,62 @@ Milestones in build order. Each system still gets its deeper design pass when we
      - _To recheck on the dedicated server:_ Iris warns that some engine parts load after it starts, which on the editor's program happens late; harmless here, since nothing of ours relies on it.
   6. **Where: free options only.** The developer has no money for this (2026-11-08: "i dont have money").
      - **Stage 1, the developer's PC:** the server plus as many bots as the PC holds (a few dozen), run at several sizes (e.g. 25, 50, 75) to see how the server's cost grows with each player. Free, and it gives an early warning on its own. _Found 2026-11-08:_ bots running on the editor's program fit only about 8 at once; on the packaged game, about 20 with the editor open and 30 with it closed (point 3).
+     - **First stage 1 runs (2026-11-09, Iris on, editor closed, the developer watching YouTube on the PC; 3 minutes each with every bot in):**
+
+       | Bots | Updates/s | Slowest update | Time under 20/s | Sent per player | Server CPU | Server memory |
+       |---|---|---|---|---|---|---|
+       | 10 | 29.9 | 35 ms | 0% | 1.8 KB/s | 0.2 cores | 1.8 GB |
+       | 15 | 30.0 | 35 ms | 0% | 1.9 KB/s | 0.2 cores | 1.8 GB |
+       | 20 | 30.0 | 41 ms | 0% | 2.0 KB/s | 0.2 cores | 1.8 GB |
+
+       _Reading:_ 20 players pass the bar easily. Data per player creeps up as the hotspot crowd grows (10 bots were in Hotspot1 at 20). **Gap found:** the server is capped at 30 updates a second and sleeps the rest of each update, so updates per second can't show how close it is to its limit, and the CPU figure is averaged over the whole run, startup included. The number that shows growth per player is **how busy the server's main thread is** (its share of each update's 33 ms); not measured yet. With 20 bots, 10.2 GB of memory was still free, so this PC fits about 40 bots with the editor closed.
+     - **Stage 1 rerun with the cost numbers (2026-11-09, same setup, YouTube playing; 3 minutes each with every bot in; half the bots crowd into Hotspot1):**
+
+       | Bots | In Hotspot1 | Main thread busy | Server CPU | Updates/s | Slowest update | Time under 20/s | Sent per player |
+       |---|---|---|---|---|---|---|---|
+       | 0 | 0 | ~4% | 0.06 cores | 30 | | | |
+       | 10 | 5 | 9.1% | 0.14 cores | 29.9 | 35 ms | 0% | 1.8 KB/s |
+       | 20 | 10 | 13.8% | 0.19 cores | 29.9 | 37 ms | 0% | 2.1 KB/s |
+       | 30 | 15 | 23.5% | 0.30 cores | 29.9 | 48 ms | 0% | 2.3 KB/s |
+       | 40 | 20 | 46.0% | 0.56 cores | 29.9 | 71 ms | 0.1% | 2.5 KB/s |
+
+       _Reading:_ **the cost grows faster than the player count**: each extra 10 bots added about 5, then 10, then 22 points. That fits the hotspot crowd, where every player near another adds work for both, so the cost goes roughly with the crowd size squared. If that holds, **one crowd of about 30 in the same spot would fill the main thread on its own**, well short of the plan's 20–50 per hotspot and the 300 target. _Caveats:_ the bots run on the same PC as the server (40 bots use about 10 of its 20 CPU threads, plus YouTube), the server is the editor's program rather than a packaged dedicated server, and the bots crowd harder than real players (they push through 10–15 m alleys). So the real numbers will be better, but probably not enough to dismiss this. _Not known yet:_ what the work is, for example the characters' movement and collisions with each other, or Iris deciding what each player gets. Finding out needs a profile of a crowded run (Unreal Insights). Memory: 5 GB was still free with 40 bots.
+     - **Profile of the 40-bot run (2026-11-09, Unreal Insights, about 100 s with every bot in; main thread 44% busy, matching the run without the profiler).** Where the main thread's time went, as a share of each update:
+       - **Handling incoming player moves, about 16%:** each player sends about 30 moves a second and the server re-runs each one (collision sweeps, floor checks) to check it. Normal Character Movement work, grows with players.
+       - **Animating the characters, about 7%:** the server plays every character's walk/run animation and moves each one's ~20 body-part collision shapes to match. Nobody sees it on a server.
+       - **Physics bookkeeping, about 8%:** mostly syncing those same body-part shapes (2.8 million updates in 100 s).
+       - **Sending updates (Iris), about 10%:** deciding what each player gets and writing it. The part that grows with crowds.
+       - **The camera arm, about 1%:** the third-person camera boom ticks on the server too.
+       - _Reading:_ about 15% of the 44% is animation and its body shapes, which a server only needs if it checks hits against body parts. One profile can't show which part grows faster than the player count; the next runs (with the cost numbers) will.
+       - **Decided: the server skips character animation, the body-part shapes and the camera arm** (the developer, 2026-11-09: "Yes, turn it off", on Claude's suggestion). Only on dedicated servers; players still see full animation. _Open for the shooting pass:_ whether hit checks need body-part shapes on the server (e.g. headshots against the head's shape) or simpler hit zones; if they do, they come back and their cost is measured. _Not chosen:_ keeping them on to test the worst case.
+       - **Rerun with animation off on the server (2026-11-09, same setup; a 4-bot profiled check first confirmed animation, body shapes and camera arm are gone from the server):**
+
+         | Bots | In Hotspot1 | Main thread busy (before → after) | Server CPU | Updates/s | Slowest update | Sent per player |
+         |---|---|---|---|---|---|---|
+         | 10 | 5 | 9.1% → 6.2% | 0.10 cores | 29.9 | 85 ms | 1.8 KB/s |
+         | 20 | 10 | 13.8% → 8.4% | 0.12 cores | 30.0 | 35 ms | 2.0 KB/s |
+         | 30 | 15 | 23.5% → 14.0% | 0.18 cores | 29.9 | 41 ms | 2.3 KB/s |
+         | 40 | 20 | 46.0% → **24.3%** | 0.31 cores | 29.9 | 58 ms | 2.5 KB/s |
+
+         _Reading:_ the cost nearly halved, but it **still grows faster than the player count** (each 10 bots adds about 2, then 6, then 10 points). The 40-bot profile now: **sending updates (Iris) about 10%**, the largest part and unchanged by the fix; **receiving and checking player moves about 8%**; physics and everything else about 5%. One profile can't tell whether the crowd or the total player count drives the growth.
+       - **Crowd or player count? (2026-11-09, 40 bots each, profiled):**
+
+         | 40 bots, arranged as | Main thread busy | Iris (sending) | Receiving and checking moves |
+         |---|---|---|---|
+         | No crowd, all roaming | 17.0% | 6.6% | 5.5% |
+         | Two crowds of 10 | 20.1% | 8.1% | 6.4% |
+         | One crowd of 20 | 24.3% | 9.9% | 7.8% |
+
+         _Reading:_ **both**. Every player costs about **0.33%** of the main thread on its own (an empty server about 4%), and crowds add on top roughly with their size squared, about **0.017% × (crowd size)²**: a crowd of 20 costs about four times a crowd of 10.
+       - **Rough projection to 300 (this setup):** 300 players with 5 hotspots of 30 come to about **180%** of one main thread; 300 spread out with no crowds about **100%**; with no crowds about 290 would fit. **An early warning, not a verdict:** the server here is the editor's program in its development setup and shares the PC with the bots; a real dedicated server build (waiting on the engine source build) will be noticeably faster, but likely not 1.8×. So the per-player costs need cutting: Iris sending updates (the largest part) and checking moves.
+       - **Faster test (Claude's call, after the developer: "each one of these is costing a lot of time"):** `run_bots.ps1 -Count 40 -Step 10` ramps one server from 10 to 40 bots, measuring each size for 1 minute (the 10 s readings vary by only about ±1 point, so 1 minute gives the same answer as 3), and stops itself with a line per size. It matched the separate runs (6.1, 8.5, 13.9, 23.1% against 6.2, 8.4, 14.0, 24.3%) in **4.8 minutes instead of about 16**. Packaging takes about 40 seconds after the first time.
+       - **Three quick cost cuts tried and dropped (2026-11-09, 40 bots, half in one crowd; the developer: "okay lets cut character cost down"):** baseline 23.3% of the main thread; **moves sent at 20 a second instead of 30–45:** 23.5%; **Iris range checks by grid cell instead of exact distance:** 24.4%; **characters sent 20 times a second instead of 30:** 23.9%. Readings vary by about ±1 point, so none saved anything measurable, and **none were kept** (each would have cost a little quality). _Reading:_ the cost is the fixed work per player (handling each incoming packet, Iris's per-connection bookkeeping every update, re-running movement), not how often things are sent. _Also found:_ Unreal's default lets a fast PC send up to 45 moves a second once a server has more than 10 players; our bots send 30, so real players may cost a bit more than the test shows.
+       - **Profiling is built into the test script:** `run_bots.ps1 -Count N -Profile` records `Saved/LoadTest/Server.utrace`. Ranked list without opening Insights: `UnrealInsights.exe -OpenTraceFile=<trace> -NoUI -AutoQuit -ExecOnAnalysisCompleteCmd="TimingInsights.ExportTimerStatistics <out.csv> -threads=GameThread -startTime=<s>"`.
      - **Stage 2, the full 300 and 500:** decided when we get there, from free options: **free trial credit** that cloud providers give new accounts (enough for a few hours of test; they usually want a card on file to verify the account, and the terms need checking at the time), or **friends' PCs** each running a few dozen bots. Nothing gets rented without the developer's OK.
      - _Original proposal (changed for money):_ a few hours on paid rented cloud machines, with the server on the kind of machine a real host would rent.
   7. **If it fails:** decide with the numbers in hand (lower player cap, smarter culling, or splitting the map). Nothing decided in advance.
   8. **Also measured:** bandwidth per player and CPU cores per server, for a rough hosting cost per server per month (feeds the business model).
+     - **Every run measures the server's real cost** (the developer, 2026-11-09: "include that test everytime. time is money"): how busy its main thread is (its share of each 33 ms update) and the CPU of all its threads, averaged over the same 10 s windows. Updates per second alone can't show cost, because the server is capped at 30 and sleeps out the rest of each update; the first stage 1 runs had to be redone for this. Built into the server's log line and the `-Stop` summary, which refuses to report a run without them. An empty server: main thread about 4% busy, 0.06 cores.
      - **How it's measured (built 2026-11-08, Claude's call):** on the test server, the game mode logs a line every 10 s: players, updates per second, its slowest update, the share of time under 20 a second (the pass bar), and data sent in total and per player. Stopping a test (`run_bots.ps1 -Stop`) sums up the 10 s windows that had every bot in, adds the server's CPU (cores, averaged over the run) and peak memory, prints one line and adds it to `Saved/LoadTest/results.txt`, so runs at different sizes sit side by side. _Why:_ the lines survive the server being stopped and can be watched live in the server's window. _Not chosen for now:_ Unreal's CSV profiler and Unreal Insights, which record far more detail; they're for finding out *why* the server is slow, once a run shows it is.
      - **Baseline without Iris (2026-11-08, 10 bots, the old replication system):** 30 updates a second, about 2.3 KB/s sent per player, 0.2 CPU cores, 1.7 GB for the server.
      - **Found 2026-11-08: Windows 11 slowed the test server.** After about 50 seconds the server dropped from 30 to a steady 21.5 updates a second, with no slow update: Windows 11 coarsens the timer of programs it decides are out of view, so each update waited for its next 15.6 ms tick. Reproduced with the server's window minimized. Fix: the test server and bots opt out of Windows' power throttling at startup (a standard Windows setting; Linux servers don't have this). _Lesson:_ numbers from the developer's PC are also affected by whatever else the PC is doing, so stage 1 runs are best done with the PC otherwise idle.
