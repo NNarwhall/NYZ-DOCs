@@ -487,3 +487,17 @@ Format: **Decision**: why. _Rejected: alternatives considered._
 
 - **Git + Git LFS, in two private GitHub repos:** [NYZ-DOCs](https://github.com/NNarwhall/NYZ-DOCs) for the docs, lore, decision log and transcripts (the developer only), and [NYZ](https://github.com/NNarwhall/NYZ) for the UE5 game (the repo volunteers would get). _Claude's recommendation; the developer created both repos._ Why two: the lore twist is spelled out in the lore bible, this log and the transcripts, and splitting one repo's history later is messy. _Not chosen:_ Perforce; one repo for everything. Answers the GDD open question "Source control: Git LFS or Perforce?" (GDD §4).
 - **Unreal Engine 5.8**, built from source, because the Epic Launcher version can't build dedicated servers (GDD §3). _Claude's recommendation_ (the newest version installed); the developer is downloading the 5.8.4 source and updating the launcher copy to 5.8.4. The source build itself can wait until the load test needs it.
+
+## 2026-11-08: Load test early, kept small
+
+- **Milestone 1 is an early, small load test** built on the game's real foundation (player character and movement, the dedicated server setup, basic zombies), plus a bot script and a map of plain boxes. It is rerun as systems are added; a full test with the finished systems still comes later. _Claude's recommendation; the developer: "Early kept small."_ Why: if 300 players don't fit on one server, the fixes change how every system sends its data (GDD §3). Written into the new GDD §24 (Development plan).
+- _Not chosen:_ testing only after most systems are built, so nothing is made just for the test (the developer's first understanding). The test-only parts are small, and the bot script is reused for every rerun.
+- The test's details (pass bar, map size, bot behavior, zombies, networking, where it runs) are proposed in GDD §24 and await the developer's answer.
+- **The load test runs at both 300 and 500 players.** The developer: "lets test both when we do the test wont hurt." 300 is the launch target, 500 the later goal; Claude's analysis put the map's comfortable maximum at about 500 (GDD §5). GDD §24 updated.
+- **The load test details in GDD §24 are agreed** (pass bar, 25 × 25 km box map, bot behavior, zombies ramped up to find the count, Iris first, decide on failure with the numbers, hosting-cost estimate). The developer: "All yes i guesss, but i dont have money."
+- **No budget for now** (new GDD §2 row). So the test runs on **free options only**: stage 1 on the developer's PC at several bot counts to see how the cost per player grows; stage 2 (the full 300 and 500) from free cloud trial credit or friends' PCs, decided when we get there. _Changes_ Claude's proposal of a few hours on paid rented cloud machines.
+
+## 2026-11-08: Game project created
+
+- **The UE 5.8 C++ project exists:** blank template, named NYZ, no starter content, raytracing off, at `C:\Game Dev Folder\NYZ\NYZ`, pushed to the NYZ repo with UE5 ignore and LFS rules. The docs repo ignores the folder. _Changes_ Claude's earlier suggestion of a `Game` folder: Unreal names the folder after the project, and renaming it adds steps for no gain.
+- **Nothing carries over from older projects** (the developer): NYZv409 stays as a reference backup only.

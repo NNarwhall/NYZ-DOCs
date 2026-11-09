@@ -44,6 +44,7 @@ Features beyond the list above may blend mechanics from several games rather tha
 | Multiplayer | **250–300 players per server at launch.** Up to **500** later if the budget allows. (Raised from 100+ on 2026-10-27: 100 players would feel like a ghost town on this map.) |
 | Camera | **First person and third person**, switchable like in DayZ |
 | Platform | **PC first.** Consoles are a goal for later, not a launch target. |
+| Budget | **None for now** (the developer, 2026-11-08). Development uses free tools and free options; anything that costs money (test machines, hosting) waits for free credit or the developer's OK. |
 
 ---
 
@@ -52,7 +53,7 @@ Features beyond the list above may blend mechanics from several games rather tha
 These aren't design choices. They follow from section 2 and limit everything else.
 
 - **Dedicated, server-authoritative servers.** At 250–300 players, servers have to be dedicated machines, and the server decides the outcome of every action (loot, damage, building). Clients only send input and display the result. This is the main defence against cheating.
-- **Replication at 250–300 players is the biggest technical risk in the project.** Most Unreal multiplayer games ship with around 100 players per server; 250–300 is well beyond that, and 500 further still. Unreal's default replication won't handle it as-is. Options to evaluate: **Iris** (UE5's newer replication system), **Replication Graph** (what Fortnite uses for 100 players), and aggressive relevancy/net culling. If one server process can't hold the target, the fallback is splitting the map across several server processes, which is a large engineering project of its own. **This has to be proven early with a load test at 300**, not discovered near the end.
+- **Replication at 250–300 players is the biggest technical risk in the project.** Most Unreal multiplayer games ship with around 100 players per server; 250–300 is well beyond that, and 500 further still. Unreal's default replication won't handle it as-is. Options to evaluate: **Iris** (UE5's newer replication system), **Replication Graph** (what Fortnite uses for 100 players), and aggressive relevancy/net culling. If one server process can't hold the target, the fallback is splitting the map across several server processes, which is a large engineering project of its own. **This has to be proven early with a load test at 300**, not discovered near the end. _Plan: milestone 1 (§24)._
   - **Player cap is a server setting**, so servers can run lower if the load test or hosting cost demands it.
   - **How to test without 300 people:** headless bot clients (launched with `-nullrhi -nosound`) connect to a dedicated server and run a simple bot script (move, sprint, loot, shoot). A few dozen run on one PC; rent several cloud machines for 300. Measure server tick rate, bandwidth per player, and server CPU/memory with Unreal Insights. Simulate lag and packet loss with UE5's network emulation.
 - **Zombie count is the hardest number in the game.** Every zombie runs its AI on the server and has to be replicated. That cost multiplies with 250–300 players spread across a map, since more of the map has players near it and so more zombies need full AI. We'll need AI LOD: full AI near players and cheap or dormant AI far away. **Mass Entity** (UE5's crowd framework) is an option for hordes. Target zombie count per server: _TBD_.
@@ -120,6 +121,7 @@ A running list from other sections; the full points-of-interest pass is still to
 - **Size:** NYC has about 780 km² of land. DayZ's Chernarus is about 225 km², so the full city is roughly 3.5× larger, and far denser.
 - **Buildings:** NYC has around a million buildings, so making all of them enterable isn't realistic. We need a rule for which ones are (DayZ also leaves many buildings closed).
 - **Player density:** a 60-player DayZ server is about 0.27 players per km². With about 680 km² of land (border v2 estimate): 100 players ≈ 0.15/km² (half of DayZ, a ghost town); **250 ≈ 0.37/km² (1.4× DayZ); 300 ≈ 0.44/km² (1.6× DayZ)**; 500 ≈ 0.74/km² (2.7× DayZ). Hotspots still matter, because players cluster rather than spreading evenly.
+- **How many players the map can take (analysis, 2026-11-08, asked by the developer):** 300 already matches a busy 100-player DayZ server (about 0.44 per km²). NYC also has far more space than its land area suggests: building interiors, several floors, subways and roofs, plus long distances to cross. So **about 500 should still feel good**, livelier rather than crowded. Past **roughly 1 player per km² of land (about 650–700 players)**, hotspots like Manhattan, hospitals and safe zones would get crowded, and quiet early looting would get rare. **The server, not the map, is likely to set the real cap** (load test, §24).
 - **How it can be built:** generate it from real map data (OpenStreetMap: streets, building footprints, heights) with UE5's PCG framework and modular building kits, then hand-detail key locations. A small team can't build 780 km² by hand. OpenStreetMap data is free to use but requires credit in the game.
 - **Engine side:** UE5's World Partition (streams the map in pieces) and Large World Coordinates (keeps positions precise on big maps) handle the size. The hard parts are content and server load, not the engine's map-size limit.
 
@@ -1272,6 +1274,37 @@ Ties to the setting: **wild animals have moved back into the overgrown city** (�
 - **When:** the game starts in **year 8** after the outbreak. The city held for about two years, then fell in **year 2**, about **6 years** before the game.
 - **Survivors call the moment it got inside the walls "the [neighborhood] Breach"** (neighborhood TBD: NJ or the Bronx). "The fall" is the city's whole collapse that followed.
 - **Still to build:** the safe-zone group, the remaining names, the rest of the timeline, radio stations, the infection itself and lore areas (see the lore bible).
+
+---
+
+## 24. Development plan
+
+Milestones in build order. Each system still gets its deeper design pass when we start building it.
+
+### Setup (before milestone 1)
+- Visual Studio 2026 and Unreal 5.8.4 (launcher): installed 2026-11-08.
+- Unreal 5.8 built from source, needed for dedicated servers (§2): to do.
+- The UE5 C++ project: **created 2026-11-08.** A blank C++ project named NYZ (no starter content, raytracing off) at `C:\Game Dev Folder\NYZ\NYZ`, pushed to the [NYZ](https://github.com/NNarwhall/NYZ) repo with UE5 ignore and LFS rules (§4). The docs repo ignores that folder.
+
+### Milestone 1: multiplayer foundation and an early load test (decided 2026-11-08)
+- **Test early, kept small** (Claude's recommendation; the developer: "Early kept small"). The test runs on what the game needs first anyway: **the player character and movement, the dedicated server setup and basic zombies.**
+- **Made only for the test:** a **bot script** (bots are the real player character, driven by a script instead of a keyboard) and a **map of plain boxes**.
+- **Test at both 300 and 500 players** (the developer, 2026-11-08: "lets test both when we do the test wont hurt"): 300 is the launch target, 500 the later goal (§2), and the map should take about 500 comfortably (§5). The 500 run needs more rented machines.
+- **The bot test is rerun as systems are added**, to catch the point where the server starts struggling. A full test with the finished systems still comes later.
+- _Why early:_ if 300 players don't fit on one server, the fixes (a different networking system, or splitting the map across servers) change how every system sends its data, so finding out late means reworking all of them (§3).
+- _Not chosen:_ testing only after most systems are built, so that nothing is made just for the test (the developer's first understanding). The test-only parts are small, and the bot script is reused for every rerun.
+- **Details (Claude's proposal, agreed 2026-11-08; the developer: "All yes i guesss", plus the money change in point 6):**
+  1. **Pass bar:** with 300 bots, the server holds 30 updates per second on average and never dips below 20 for more than a moment. Starting numbers, tuned after the first results.
+  2. **Test map:** flat, 25 × 25 km (about the real map's land area), plain boxes as buildings, so bots spread out like real players.
+  3. **Bots:** walk, sprint and jump along random routes; crowd into a few hotspots (20–50 at once); shoot each other; pick up and drop items; open containers. Vehicles and building in a second round.
+  4. **Zombies:** simple server-side zombies (wander, hear, chase, attack); start with a set number around each player and raise it until the server struggles, which gives the zombie count per server (§8). Zombies far from players go dormant.
+  5. **Networking:** try Iris first, Replication Graph as the fallback (§3). Check Iris's status in 5.8's release notes first.
+  6. **Where: free options only.** The developer has no money for this (2026-11-08: "i dont have money").
+     - **Stage 1, the developer's PC:** the server plus as many bots as the PC holds (a few dozen), run at several sizes (e.g. 25, 50, 75) to see how the server's cost grows with each player. Free, and it gives an early warning on its own.
+     - **Stage 2, the full 300 and 500:** decided when we get there, from free options: **free trial credit** that cloud providers give new accounts (enough for a few hours of test; they usually want a card on file to verify the account, and the terms need checking at the time), or **friends' PCs** each running a few dozen bots. Nothing gets rented without the developer's OK.
+     - _Original proposal (changed for money):_ a few hours on paid rented cloud machines, with the server on the kind of machine a real host would rent.
+  7. **If it fails:** decide with the numbers in hand (lower player cap, smarter culling, or splitting the map). Nothing decided in advance.
+  8. **Also measured:** bandwidth per player and CPU cores per server, for a rough hosting cost per server per month (feeds the business model).
 
 ---
 

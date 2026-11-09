@@ -38,8 +38,15 @@ The developer wants the lore saved in extreme detail. These rules apply to every
 - `tools/map/` builds the map border from OpenStreetMap data (needs Python with `shapely`). The segment list at the top of `build_border.py` *is* the border definition; outputs go to `docs/map/`.
 - Public Overpass servers are often overloaded; `fetch_routes.py` uses Nominatim plus the main OSM API instead. Python's certificate store fails on these hosts here, so fetching goes through `curl`.
 
+## Repos and project layout
+
+- **This folder is the docs repo**, [NYZ-DOCs](https://github.com/NNarwhall/NYZ-DOCs) (private, the developer only).
+- **The Unreal 5.8 C++ project is in the `NYZ` subfolder** (`C:\Game Dev Folder\NYZ\NYZ`), which is **its own git repo**, [NYZ](https://github.com/NNarwhall/NYZ), with UE5 ignore and LFS rules. The docs repo ignores that folder. Commit game changes from inside it and docs changes from here.
+- Both repos commit as `NNarwhall` with the GitHub noreply address; the developer's GitHub login is saved in Git Credential Manager, so pushes don't ask.
+
 ## Pending reminders
 
-- **Game repo**: this folder is the docs repo ([NYZ-DOCs](https://github.com/NNarwhall/NYZ-DOCs), connected 2026-11-08). The game repo, [NYZ](https://github.com/NNarwhall/NYZ), is still empty: set it up with UE5 ignore and LFS rules **when the UE5 project is created**, before anything is committed to it.
-- **Engine source build**: the developer is downloading the Unreal 5.8.4 source zip (2026-11-08; suggested location `C:\UE\5.8`). Still to do, before the dedicated-server load test: check Visual Studio 2022's C++ components, run `Setup.bat`, `GenerateProjectFiles.bat`, then build. The launcher copy is being updated from 5.8.3 to 5.8.4.
+- **Engine source build**: the developer is downloading the Unreal 5.8.4 source zip (2026-11-08; suggested location `C:\UE\5.8`). Still to do, before the dedicated-server load test: run `Setup.bat`, `GenerateProjectFiles.bat`, then build.
+- **Visual Studio for UE 5.8** (checked 2026-11-08 against `Engine/Config/Windows/Windows_SDK.json`): **VS Community 2026 18.11.3 is installed** next to the old VS 2022 17.7.6 (left untouched for the old 5.3 C++ project). It has MSVC 14.51.36231 (allowed by 5.8.4: above the 14.38.33130 minimum and not banned, but not on Epic's preferred list, which is 14.50.35717+ or 14.44.35207+) and Windows SDK 10.0.26100 (allowed; 10.0.22621 preferred). **Still missing:** the ".NET desktop development" workload (on Epic's suggested list, needed for the source build) and, recommended, the MSVC 14.50 toolset Epic prefers. The developer was told to add both; check before creating the C++ project. The launcher copy of Unreal is now 5.8.4.
+- **Older Unreal projects exist** in `Documents\Unreal Projects`: "NYZ - Copy" (UE 5.3, C++), "NYZv409" (UE 5.8, Blueprint only), CityTest and RoadTesttttt (UE 5.8). **Nothing carries over** (the developer, 2026-11-08): the new project starts fresh, and NYZv409 stays as a reference backup only.
 - **Lore revisit**: the developer wants to revisit the entire lore later in development, not now (said 2026-11-08). Don't start lore work unprompted. When work reaches lore-heavy content (points of interest, safe zones, radio broadcasts), remind them the revisit is still pending.
