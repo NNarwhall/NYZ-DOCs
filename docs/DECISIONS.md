@@ -560,3 +560,7 @@ Format: **Decision**: why. _Rejected: alternatives considered._
 ## 2026-11-09: The project moves to the source-built engine
 
 - **Once compiled, the project uses Unreal 5.8.4 built from source instead of the launcher's.** The developer: "yes switch it, also will i still have the usual ue ui?" (yes: same editor). _Why:_ only a source build makes dedicated servers (real load-test numbers, stage 2 on cloud machines, launch), and two engines building one project overwrite each other's compiled code. _Not chosen:_ the launcher engine for editing plus a separate project copy for server builds. GDD §24 setup updated.
+
+## 2026-11-09: Bare test zombie
+
+- **The first zombie is a bare test version** (Claude's plan; the developer: "yes do that, and commit when done"): player-style character movement driven by a small server-side brain (wander, hear 30 m / 60 m if sprinting, chase at 3 m/s, swing without damage, sleep with no player within 500 m), no pathfinding, no AI controller. Spawned by the server, N per player, for the load test. _Why:_ measure the naive cost per zombie first; the result decides whether zombies need a lighter system (Mass). _Not chosen yet:_ Mass, navigation mesh, zombie art; all for the zombie pass. GDD §24 point 4.
