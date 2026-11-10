@@ -42,8 +42,30 @@ SINK = 50             # cm below the terrain for wall bottoms
 FIND_WALL = 300       # cm: a wall or roof belongs to the nearest footprint within this
 FEET_PER_UNIT = {rhino3dm.UnitSystem.Feet: 1.0, rhino3dm.UnitSystem.Inches: 1 / 12, rhino3dm.UnitSystem.Millimeters: 1 / 304.8,
                  rhino3dm.UnitSystem.Centimeters: 1 / 30.48, rhino3dm.UnitSystem.Meters: 1 / 0.3048}
-LAYERS = {"Buildings::Building_FootPrint": "footprint", "Buildings::RoofTop Surface": "roof", "Buildings::Facade Surface": "wall",
-          "Buildings::Building_RoofTop": "roof outline", "Buildings::Building_Facade": "wall outline"}
+def layer_kind(path):
+    """What a layer under Buildings holds, by keyword: the files name them differently ("Facade Surface" in MN03,
+    "Building Facade Surface" in BX03, "Surface_Facade" in QN12; outlines "Building_Facade"). Surfaces are the faces,
+    the others their outlines."""
+    top, _, name = path.lower().partition("::")
+    if top != "buildings":
+        return None
+    part = "footprint" if "footprint" in name else "roof" if "roof" in name else "wall" if "facade" in name else None
+    if part is None:
+        return None
+    surface = "surface" in name
+    return {"footprint": ("footprint surface", "footprint"), "roof": ("roof", "roof outline"), "wall": ("wall", "wall outline")}[part][0 if surface else 1]
+
+
+def curve_points(g):
+    """A closed outline's corner points: polylines directly, other curves (QN12's PolyCurves) as a polyline if they are
+    one, else sampled."""
+    if isinstance(g, rhino3dm.PolylineCurve):
+        return [g.Point(i) for i in range(g.PointCount)]
+    poly = g.TryGetPolyline() if hasattr(g, "TryGetPolyline") else None
+    if poly:
+        return [poly[i] for i in range(len(poly))]
+    t0, t1 = g.Domain.T0, g.Domain.T1
+    return [g.PointAt(t0 + (t1 - t0) * k / 64) for k in range(65)]
 
 LOC, SCALE = TERRAIN["unreal_location_cm"], TERRAIN["unreal_scale"]
 VX, VY = TERRAIN["size_points"]
@@ -70,6 +92,21 @@ def to_unreal(xyz_ft):
     """N x 3 feet (state plane) -> N x 3 cm (Unreal)."""
     utm = np.array(TO_UTM.TransformPoints(xyz_ft[:, :2].tolist()))
     return np.column_stack(((utm[:, 0] - E0) * 100, -(utm[:, 1] - N0) * 100, xyz_ft[:, 2] * FT))
+
+
+def map_border():
+    """The map's border polygon (the first feature of docs/map/border-draft.geojson, lon/lat) in Unreal cm."""
+    g = json.loads((ROOT / "docs/map/border-draft.geojson").read_text(encoding="utf-8"))
+    poly = next(f for f in g["features"] if f["geometry"]["type"] == "Polygon")
+    wgs = osr.SpatialReference()
+    wgs.ImportFromEPSG(4326)
+    wgs.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
+    to_utm = osr.CoordinateTransformation(wgs, dst)
+    rings = [[((e - E0) * 100, -(n - N0) * 100) for e, n, *_ in to_utm.TransformPoints([tuple(p[:2]) for p in ring])]
+             for ring in poly["geometry"]["coordinates"]]
+    border = shapely.Polygon(rings[0], rings[1:])
+    shapely.prepare(border)
+    return border
 
 
 def test_block_areas():
@@ -125,7 +162,7 @@ def convert(path):
     district = path.stem.replace("NYC_3DModel_", "")
     f = rhino3dm.File3dm.Read(str(path))
     assert f is not None, f"could not read {path}"
-    kind_of = {layer.Index: LAYERS.get(layer.FullPath) for layer in f.Layers}
+    kind_of = {layer.Index: layer_kind(layer.FullPath) for layer in f.Layers}
     # Most files are in feet; some were saved in other units (MN06: millimetres, Rhino's feet being 304.8 mm).
     unit = FEET_PER_UNIT.get(f.Settings.ModelUnitSystem)
     assert unit, f"{path.name}: unexpected units {f.Settings.ModelUnitSystem}"
@@ -133,13 +170,20 @@ def convert(path):
 
     outlines, verts, tris, face_first, face_kind = [], [], [], [0], []
     rings = {"roof": [], "wall": []}  # wall and roof outlines, for files saved without meshes
+    footprint_meshes, footprint_surfaces = [], 0
     base = breps = 0
     for obj in f.Objects:
         kind, g = kind_of.get(obj.Attributes.LayerIndex), obj.Geometry
-        if kind == "footprint" and isinstance(g, rhino3dm.PolylineCurve):
-            outlines.append([pt(g.Point(i)) for i in range(g.PointCount)])
-        elif kind in ("roof outline", "wall outline") and isinstance(g, rhino3dm.PolylineCurve):
-            rings[kind.split()[0]].append([pt(g.Point(i)) for i in range(g.PointCount)])
+        if kind == "footprint" and isinstance(g, rhino3dm.Curve):
+            outlines.append([pt(p) for p in curve_points(g)])
+        elif kind == "footprint surface" and isinstance(g, rhino3dm.Brep):
+            footprint_surfaces += 1
+            m = g.Faces[0].GetMesh(rhino3dm.MeshType.Any)
+            if m is not None:
+                points = [pt(p) for p in m.Vertices.ToPoint3dArray()]
+                footprint_meshes.append((points, [m.Faces[i] for i in range(len(m.Faces))]))
+        elif kind in ("roof outline", "wall outline") and isinstance(g, rhino3dm.Curve):
+            rings[kind.split()[0]].append([pt(p) for p in curve_points(g)])
         elif kind in ("roof", "wall") and isinstance(g, rhino3dm.Brep):
             breps += 1
             for face in g.Faces:
@@ -155,14 +199,32 @@ def convert(path):
                 base += len(points)
                 face_first.append(len(tris))
                 face_kind.append(kind)
-    if len(face_kind) < breps / 2:  # saved without meshes (MN06): build the faces from the outlines instead
-        verts, tris, face_first, face_kind = [], [], [0], []
+    meshed = len(face_kind) / max(breps, 1)
+    # Stored meshes only when nearly every face has one: files saved without (MN06, BX03) or with some (BK04: faces
+    # without one were silently lost) get all their faces from the outlines instead, which every file has.
+    if meshed < 0.99:
+        verts, tris, face_first, face_kind, base = [], [], [0], [], 0
         for kind, points, triangles in outline_faces(rings):
             tris.extend(tuple(base + i for i in t) for t in triangles)
             verts.append(points)
             base += len(points)
             face_first.append(len(tris))
             face_kind.append(kind)
+    # Only when nearly every footprint surface has a mesh (BK10's mostly don't, and its outlines are fine).
+    if len(footprint_meshes) > 0.9 * footprint_surfaces and abs(len(outlines) - footprint_surfaces) > 0.1 * footprint_surfaces:
+        # The outline layer holds something else (QN01: wall outlines) or misses some (QN12): footprints from the
+        # footprint surfaces instead.
+        outlines = []
+        for points, faces in footprint_meshes:
+            shape = shapely.union_all([shapely.Polygon([points[i][:2] for i in (a, b, c, d)] if c != d else [points[i][:2] for i in (a, b, c)])
+                                       for a, b, c, d in faces])
+            shape = max(shapely.get_parts(shape), key=lambda p: p.area) if shape.geom_type != "Polygon" else shape
+            if shape.is_empty or shape.geom_type != "Polygon":
+                continue
+            z = min(p[2] for p in points)
+            outlines.append([(x, y, z) for x, y in shape.exterior.coords])
+    # A footprint needs three corners (BK11 has some that don't).
+    outlines = [o for o in outlines if len({(round(p[0], 2), round(p[1], 2)) for p in o}) >= 3]
     read_s = time.time() - start
     assert outlines and face_kind, f"{path.name}: no footprints or faces on the expected layers"
 
@@ -191,14 +253,19 @@ def convert(path):
     owner = np.full(nface, -1)
     owner[pairs[0]] = pairs[1]
 
-    # Left out: the grey test block's areas, and anything off the terrain (outside the map's rectangle).
+    # Left out: the grey test block's areas, and anything outside the map border (docs/map/border-draft.geojson).
+    border = map_border()
+
     def off_map(c):
-        return not (LOC["x"] < c[0] < LOC["x"] + (VX - 1) * SCALE["x"] and LOC["y"] < c[1] < LOC["y"] + (VY - 1) * SCALE["y"])
+        return not shapely.contains_xy(border, c[0], c[1])
 
     blocked = test_block_areas()
     middle = np.array([[p.centroid.x, p.centroid.y] for p in polys])
-    outside = np.array([off_map(c) for c in middle])
-    assert outside.mean() < 0.5, f"{path.name}: {outside.mean():.0%} of buildings land off the map: wrong units or coordinates?"
+    outside = ~shapely.contains_xy(border, middle[:, 0], middle[:, 1])
+    # A wrong unit puts a district hundreds of km away (MN06 in millimetres read as feet); districts at the map's edge
+    # are partly outside it for real (QN13), which the border handles.
+    far = np.abs(middle).max(axis=1) > 10_000_000  # 100 km from the map's middle
+    assert far.mean() < 0.5, f"{path.name}: {far.mean():.0%} of buildings land over 100 km away: wrong units or coordinates?"
     in_block = np.array([any(a.contains(shapely.Point(c)) for a in blocked) for c in middle])
     skip = in_block | outside
     loose_skip = np.array([off_map(c) or any(a.contains(shapely.Point(c)) for a in blocked) for c in centres[owner < 0]]) if (owner < 0).any() else []
@@ -219,6 +286,11 @@ def convert(path):
         buildings[i]["skipped"] = "off the map" if outside[i] else "test block"
 
     OUT.mkdir(parents=True, exist_ok=True)
+    if not len(order):  # a district wholly outside the border (most of Staten Island)
+        for old in OUT.glob(f"{district}.*"):
+            old.unlink()
+        print(f"{district}: {len(buildings)} buildings, all outside the map border: nothing written")
+        return
     tiles, total_tris = 0, 0
     with open(OUT / f"{district}.nyzb", "wb") as out:
         out.write(b"NYZB" + struct.pack("<II", 1, 0))
@@ -257,10 +329,10 @@ def convert(path):
         "faces_not_matched_to_a_footprint": loose, "buildings": buildings}), encoding="utf-8")
 
     in_tiles = sum(1 for b in buildings if "tile" in b)
-    assert in_tiles > 0.9 * (len(buildings) - skip.sum()), f"only {in_tiles} of {len(buildings)} buildings got faces"
+    assert in_tiles >= 0.9 * (len(buildings) - skip.sum()), f"only {in_tiles} of {len(buildings)} buildings got faces"
     print(f"{district}: {len(buildings)} buildings ({int(in_block.sum())} left out for the test block, {int(outside.sum())} off the map, {len(buildings) - in_tiles - int(skip.sum())} "
           f"without faces), {nface} faces ({loose} not matched to a footprint), {tiles} tiles, {total_tris:,} triangles; "
-          f"read {read_s:.0f} s, total {time.time() - start:.0f} s")
+          f"faces from {'stored meshes' if meshed >= 0.99 else f'outlines ({meshed:.0%} meshed)'}; read {read_s:.0f} s, total {time.time() - start:.0f} s")
 
 
 def convert_zip(path):
