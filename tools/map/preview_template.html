@@ -28,9 +28,11 @@ const STYLE = {
   connector:   { color: "#2ca02c", weight: 5, dashArray: "10 5 2 5" },
 };
 const map = L.map("map");
-L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-  maxZoom: 19, attribution: "&copy; OpenStreetMap contributors",
-}).addTo(map);
+// Esri's tiles: OpenStreetMap's own server refuses pages opened from a file, and CARTO's now needs a key.
+const esri = "https://server.arcgisonline.com/ArcGIS/rest/services/";
+const streets = L.tileLayer(esri + "World_Street_Map/MapServer/tile/{z}/{y}/{x}", {maxZoom: 19, attribution: "Tiles &copy; Esri"}).addTo(map);
+const satellite = L.tileLayer(esri + "World_Imagery/MapServer/tile/{z}/{y}/{x}", {maxZoom: 19, attribution: "Tiles &copy; Esri"});
+L.control.layers({"Streets": streets, "Satellite": satellite}, null, {position: "topleft"}).addTo(map);
 
 const candidates = L.geoJSON(CANDIDATES, {
   style: { color: "#555", weight: 2, opacity: 0.5 },
