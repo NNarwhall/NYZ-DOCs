@@ -1617,6 +1617,23 @@ Claude's proposal; the developer asked "when does map development come", then, o
 15. **Animations: Epic's free Game Animation Sample for now** (walking, running, crouching, vaulting and climbing, made for Unreal's mannequin), if it works on 5.8 (to check). _The developer: "For now, will probably change to our own later"._ The mannequin stays the body until character art.
 16. **Server budget:** movement stays at about 0.33% of the main thread per player or less; vault, climb and ledge checks run on the player's PC and the server only confirms them. _"Agreed"._
 
+### Building it (in four chunks, Claude's plan; the developer: "Start the movement basics")
+1. **The basics: built 2026-11-11** (game repo `Source/NYZ`: `NYZCharacter`, `NYZCharacterMovementComponent`, `NYZMovementSettings`, `NYZHUD`).
+   - **Every number and key in one place:** Project Settings > Game > **NYZ Movement** in the editor (saved in `Config/DefaultGame.ini`), read live: speeds, feel, stamina, body and eye heights, camera, keys.
+   - **Keys (defaults):** WASD; Space jumps, or stands you up from a crouch or prone; **hold Shift** to sprint, **hold Ctrl** to walk; **C** crouch (standing ↔ crouched, prone → crouched); **Z** prone (down from anything, up to standing from prone); **Q/E** lean; **hold Alt** free look; **V** first ↔ third person; **X** swap shoulder; **F** use.
+   - **Speeds as decided** (jog 3.5, walk 1.6, sprint 6, crouch 2.2 or 1 walking, prone 0.6 m/s); acceleration 12 and braking 15 m/s² (a little momentum); lower friction while sprinting, so turns are wider.
+   - **Stamina:** a full bar sprints about 50 s and refills in about 30 s; a jump costs 5%; empty means no sprinting or jumping until it's back to 20%. It runs the same way on the player's PC and on the server (no corrections), and the server sends its value to the owner to fix any drift.
+   - **The body faces where the camera looks** (strafing, DayZ-style); free look turns the camera alone, up to 120°, and snaps back on release.
+   - **First person** at eye height with the head hidden for the player, so they see their own body; **third person** over the shoulder at 2.5 m. The camera eases down and up with stance changes. Default view: third person.
+   - **Lean** shifts and tilts the view 30 cm and 12°, stopping short of walls.
+   - **A test readout** at the bottom left: stamina bar (red when exhausted), stance, pace, speed, camera.
+   - **Checked:** compiles; a headless server and a bot client: joined, moved and jumped with no position corrections and no errors. **The developer tried it in Play: "it works".** Seen by the developer: "when running right just holding d, hes walking properly and normally to the right, but when holding a he walks left, but walks backwards instead of facing that way". _Claude:_ the template's mannequin animations have no proper sideways movement, so moving left plays a backward walk; Epic's animation sample (chunk 2) has real strafing in every direction, which fixes it. The body facing the camera (strafing) is intended (point 8, DayZ-style).
+   - **Not yet, by design:** crouch, prone and strafing animations (chunk 2: until then the mannequin plays its run while crouched or prone and slides sideways when strafing); others seeing the lean (with the animations); weight lowering stamina (with inventory, §11); the first-person-only server setting (with the server settings, §20); gamepad (later); a key menu for each player (with the settings menu).
+   - **Shortcuts in the code:** prone is a short upright capsule (84 cm tall, it can't be shorter than its width) until the animations bring a lying shape; the server learns of free look one move late, so the body can turn by one frame's mouse movement as free look starts; the test readout is placeholder.
+2. **Animations** (Epic's free animation sample; the developer adds it from Fab, size first). Not started.
+3. **Getting over things** (jump, vault, climb, ladders, then ledges). Not started.
+4. **Swimming, falls, footstep noise.** Not started.
+
 ---
 
 ## Systems to design
