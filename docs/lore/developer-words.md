@@ -311,3 +311,10 @@ _Context: Weather topic, point 6 (weather radio)._
 _Context: said right after the backpack inventory demo was updated; about when to come back to the lore._
 
 > Also, I want to get going on actually making the game. I want to revist the entire lore at some point, so later in development but not rn
+
+
+## 2026-11-11
+
+_Context: answering Claude's list of street details, which assumed "eight years of decay" from the timeline (8 years in total); also asks about a road-editing tool like RoadBLD. Only the first sentence is lore._
+
+> With the lore rework, it is not likely to be 8 years in, closer to 1-2, maybe 3. But yes all of that.  And is it possible to make a system, like RoadBLD(Look it up) where i can have actual control of the roads and stuff, even after they're placed, etc, with a nice clean ui where all the features can be adjusted/swapped? You can get the initial road in, but i want to be able to select segments/parts of a road/street, and change the different features, like the ones you mentioned? dont start, consult with me first

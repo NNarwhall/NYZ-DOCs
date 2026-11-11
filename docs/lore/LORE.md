@@ -219,7 +219,7 @@ Every rule below needs an in-world reason, or at least shouldn't contradict the 
 | A rare antiviral cures infection (hospitals, labs) | §8, §12 |
 | Zombies hunt mainly by sound, see worse at night, don't swim | §8, §16, §19 |
 | No zombie animals; wildlife has returned to the city | §22 |
-| The city is **overgrown**, so the outbreak was **years** ago | §5 |
+| The city is **overgrown**, so the outbreak was **years** ago. _Under revision 2026-11-11: likely 1–3 years, so lighter overgrowth (see Timeline v2)_ | §5 |
 | The map border is a **wall along major highways**; bridges are open | §5, §16 |
 | An organized safe-zone group: NPC guards, elite snipers, a bank, its own currency (Sanctos Notes, final), radio broadcasts. _It's what's left of the Force (most survivors don't know); the zones are Sanctuary 1–7_ | §18, §19 |
 | Smuggled guns in a customs warehouse at the ports | §12 |
@@ -242,7 +242,11 @@ Waiting for the developer:
    - **B. Keep "a lab accident":** infected escaped from a lab and got out through the wall at [neighborhood]. Harder to explain why a lab breakout would come through the outer wall.
    - **C. Both:** the official line is A (a wall failure, the "containment incident"); a rumor says something got out of a lab.
    - Claude's pick: **A + C's rumor.**
-2. **Timeline v2's draft parts** (Claude, 2026-10-27): the wall going up in months 2–4 of year 0; the flood in years 2–3; Sanctuary 1 opening in years 3–5 and the network growing in years 5–8; survivors' line for the fall, "They abandoned us." See "Timeline v2" below.
+2. **Timeline v2's draft parts** (Claude, 2026-10-27): the wall going up in months 2–4 of year 0; the flood in years 2–3; Sanctuary 1 opening in years 3–5 and the network growing in years 5–8; survivors' line for the fall, "They abandoned us." See "Timeline v2" below. _May change with item 3._
+3. **1–3 years counted from what?** (Claude, 2026-11-11, after the developer's "not likely to be 8 years in, closer to 1-2, maybe 3"). Options:
+   - **A. 1–3 years since the outbreak:** the whole story (the wall, the lockdown, the breach, the fall) fits in the first year or so, and the game starts 1–3 years after it all began. The lockdown's daily life (registry, ration credits, assigned work, propaganda from late year 1) gets squeezed into months.
+   - **B. 1–3 years since the fall:** the city still holds for about two years as now, falls, and the game starts 1–3 years later (3–5 years after the outbreak in all). Daily life inside the wall keeps its time; the overgrowth and the Sanctuaries have 1–3 years.
+   - Claude's pick: **B**, since the lockdown years carry much of the clue material (ID cards, ration credits, propaganda, removal notices).
 
 ---
 
@@ -272,6 +276,8 @@ The four layers are chosen (see "The truth" above). Questions they raise:
 
 ### 2. Timeline v2 (2026-10-27, new chat)
 **Decided:** **8 years in total.** The game starts in **year 8**; the city fell in **year 2**, about **6 years** before (long enough for the overgrowth and the returning animals). **The wall's soldiers were ordered to let no one out** (twist layer 1 made physical). The developer confirmed both on 2026-10-27 ("4. yes").
+- **Under revision (the developer, 2026-11-11, while planning the streets' look):** _"With the lore rework, it is not likely to be 8 years in, closer to 1-2, maybe 3."_ Proposed by the developer; not final until the lore revisit. **Open: 1–3 years counted from what** (see Pending proposals, item 3). Until then the 8-year table below stands as written, marked as under revision.
+- _What changes with a shorter time (Claude, 2026-11-11):_ the overgrowth is lighter (weeds and grass in every crack, wild lots and parks, vines starting on low walls, saplings in tree pits and cracks; not trees through the asphalt or towers covered in vines); returning wild animals still work but fewer (coyotes, deer, foxes and turkeys already live in and around NYC); canned food, fuel and batteries are mostly still good, so cars still run (fits GDD §16); the Sanctuary network (years 3–8 in the table) has less time to grow; the "decayed" zombie tier (GDD §8) needs the fall to be at least a year or two back.
 
 Built from everything decided. Parts marked _draft_ are still Claude's from v1 and need the developer's OK.
 
