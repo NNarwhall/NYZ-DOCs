@@ -677,3 +677,50 @@ Format: **Decision**: why. _Rejected: alternatives considered._
 
 - **Decided for now** (Claude's proposal; the developer: "Yes, that split for now"): Epic's free Game Animation Sample for walking, running, sprinting, crouching and vaulting, created by the developer as its own project and migrated into NYZ; code-driven animation for leaning, head turning in free look and feet planting on curbs and slopes; Claude's script-made placeholder animations only where no free one exists (stiff, swapped later). The developer expects to replace them with their own later. Details in GDD §25.
 - **Then decided (same day):** the sample's copied files (about 2.5–3 GB of animations and their set-up) stay out of the game repo, ignored by git like the NYC map, and are copied in on any PC by a script from the sample project (free on Fab); our own files that use them stay in git (the developer: "Yes, keep them out"; Claude's pick). _Why:_ GitHub's free Git LFS is 10 GB of storage and 10 GB of downloads a month, and every clone would download them.
+
+## 2026-11-11: Vaulting and climbing: no rollover vaults, our own animation table
+
+- **The developer, after the first try:** "i dont want that rollover parkour type vault, thats straight parkour" (with a list of bugs: floaty, a T-pose after climbing, sprint jumps losing speed, rubberbanding, full-height backwards jumps, the body turning with the camera mid-climb; all in GDD §25).
+- **Decided:** the sample's "V2" hurdles (the body rolls sideways over the obstacle) are never used. _Claude's calls:_ our own short table picks among the sample's montages by move, height, speed and leading foot, replacing the sample's pose-matching table (which couldn't be told to leave moves out); a running leap onto something only up to waist height (110 cm); the jump is a smaller hop (about 75 cm) and about half that when moving backwards; the PC tells the server when a vault ends.
+- **Checked by a scripted run** alone, against a server and with 80 ms of lag: no rubberbanding, no T-pose, speed kept. Looks are for the developer to judge.
+- **Open:** whether sprinting backwards or sideways should be limited; vaulting over a roof-edge parapet.
+
+## 2026-11-12: Vaulting: thin walls up to chest height, and catching a ledge in the air
+
+- **The developer, after trying the rework:** "cant vault this wall" (the 1.3 m thin fence on the test map) and "holding space to catch ledges when jumping isnt working".
+- **The wall:** the rule only went over thin walls up to waist height (110 cm) and treated a taller one as "too tall, so a jump". **Changed:** over a thin wall up to chest height (150 cm) with hands on top (the running no-hands jump over stays up to 110 cm); a thin wall taller than that, up to 2.6 m, is climbed onto and stepped off the far side. _Claude's numbers; in the NYZ Movement settings._
+- **Catching in the air:** it wasn't built (vaults started from the ground only). **Added:** while Space is held in the air, the first ledge within reach, up to 2 m above the feet, is grabbed: pulled up onto, or over if it's a thin fence with ground behind. _Claude's calls:_ a catch in the air never vaults over a wall with a drop behind (it climbs onto it instead), so holding Space can't fling a player off a roof; a jump lets a wall up to about 2.7 m be caught, against 2.6 m from the ground.
+- **Checked by the scripted run** (the course got a 2 m thin wall, and a 2 m block and a 1.1 m fence to jump at) alone, against a server and with 80 ms of lag: the 1.3 m fence is got over, the 2 m thin wall climbed, both jumps caught in the air; no rubberbanding, no T-pose. Looks are for the developer to judge.
+
+## 2026-11-12: Movement, second round: straight over thin walls, hands above 75 cm, no sprinting backwards, the sprint lean
+
+- **The developer, after trying the changes above:** "for walls that are this thin, goes straight over after climbing up, instead of staying at the top, so things like fences and other skinnier barrieers can be climbed straight over, compared to standing ontop of it whhere the animation currently ends"; (screenshot at a waist-high fence) "should also not no hand at this height, hands should be needed here"; "also should not be able to sprint backwards"; "Also the sprint has a little funk to it, its like it enters the full speed animation, and after a second or a few, it goes back to the start of the animation, where hes fully standing running instead of that foward lean"; "only happens with straight run, w only. sideways fowards sprints are fine".
+- **Thin walls taller than chest height (1.5 to 2.6 m) with ground behind are climbed straight over**, not onto. This replaces the morning's "onto its top, then step down". _How (Claude's):_ the climb animation until the body is up, then our own motion across the top and a real fall; no animation of its own yet. With a drop behind, or nowhere to land, it stays a climb onto the top.
+- **Hands are needed above 75 cm** (it was 110 cm): the no-hands running jump over a fence and the running leap onto something only up to 75 cm. _75 is Claude's number._
+- **Sprinting is forwards only:** within 60 degrees of where the body faces (W, W+A, W+D). _Claude's call:_ straight sideways doesn't sprint either. This closes the open question from 2026-11-11.
+- **The sprint dropping its lean:** the sample's sprint loop is made for 7 m/s and ours is 6; its transition clips pass through 6 m/s and kept being picked again on a straight sprint. **Fixed** by taking the transition clips out of the sample's sprint-loop sets in our set-up script. _Not chosen:_ raising our sprint to 7 m/s to match (a gameplay number).
+- **Checked by the scripted run** alone, against a server and with 80 ms of lag: no rubberbanding, no T-pose; a straight sprint stays on the sprint loop.
+
+## 2026-11-12: The tall climb over ends with the sample's catch-vault clip
+
+- **The developer:** "is there anyway youre able to combine either the vault or hurdle or both into the ending of the tall climbover we made that has no proper ending? consult before starting".
+- **Claude's comparison** (from the clips' joint positions): the unused catch-vault clip (grab, pull up, over, drop in one motion; joins the climb at the hang, same pose, almost still), the ground vault's second half (joins on top; a change of pace there), the hurdle's second half (a 1 m step down; a poor fit for 2 m).
+- **Decided: the catch-vault clip** (the developer: "Catch-vault clip"; Claude's recommendation). From the ground the climb's jump and grab, then the catch-vault from where its pull-up starts; in the air the catch-vault alone. _Claude's call:_ real falling takes over at 1.5 m/s forwards once past the wall (landing about 1.3 m beyond a 2 m wall), not the clip's own 4 m/s leap; one setting.
+- **Not chosen:** the vault ending and the hurdle ending (above); they stay possible.
+- **Checked by the scripted run** alone, against a server and with 80 ms of lag: over the wall from a standstill with no keys and from a jump; no rubberbanding, no T-pose. How the join looks is for the developer to judge.
+
+## 2026-11-12: Climb over: a one-handed ending, a switch between the two, legs kept out of the wall, a slower legs-over
+
+- **The developer, after trying the catch-vault ending:** "ok maybe do the one handed one"; "the legs seem to clip through the wall with that last one, can we fix that? Also, the transition to the legs over the fence was kind of too quick, can we slow it down a bit?"
+- **Added: a one-handed ending, now the default.** The climb all the way up, then the sample's running vault (its only one-handed vault) from where its body arrives on top. _Claude's reading of "the one handed one"; the developer can name another clip._ **Both endings are kept behind a switch** in the NYZ Movement settings (Claude's addition), since "maybe" means it's still being compared.
+- **Fixed: legs in the wall.** The two joined clips hang at different distances from the wall (28 and 46 cm); the second now starts inside its own alignment to the ledge.
+- **Changed: the legs-over part plays at 60% of the clip's pace** (about 0.4 s instead of 0.2 s; one setting). _60% is Claude's number._
+- **Checked by the scripted run** with each ending; no rubberbanding, no T-pose. Looks are for the developer to judge.
+
+## 2026-11-12: The one-handed climb over joins at the push-up; Claude can capture a move's frames itself
+
+- **The developer** sent a video of the one-handed ending: "doesnt look right". The frames showed a crouch on top of the wall, then a pop into the vault's mid-air pose.
+- **Changed (Claude's):** the vault takes over at the push-up (arms straight on the ledge, hips at the top), 0.14 s before its body arrives on top instead of after the feet are up; the whole vault plays at 60% pace. One setting each.
+- **Added (Claude's):** `NYZ/Tools/capture_move.ps1`, which plays one leg of the scripted course without a window and tiles a screenshot every 0.1 s into one side-on picture. _Why:_ animation joins can only be judged by eye, and each round cost the developer a close, a try and a recording.
+- **Seen in the captures:** both endings now read as one motion.
+- **Decided: the catch-vault ending is the default** (the developer, shown frame sheets of both: "Catch-vault"). The one-handed ending stays behind the `Climb Over One Handed` switch, off by default. _Not chosen for now:_ the one-handed vault (more athletic: the body goes sideways over the top).
