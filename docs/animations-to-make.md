@@ -95,7 +95,7 @@ What we have today (Epic's free sample, about 800 clips) is in [animation-list.m
 | MOV-052 | Long fall | Arms and legs working, from height | L | In place | 1 | M2 | – |
 | MOV-053 | Land | Soft and hard, by pace | 1 | In place | Light, heavy × standing, walk, jog, sprint; backwards | Now | E |
 | MOV-054 | Step off an edge | Walking or running off a drop | 1 | In place | Walk, jog, sprint | Now | E |
-| MOV-055 | Bad landing | 3–4 m: lands hard, stumbles, a hand to the leg | 1 | In place | 1 | M2 | – |
+| MOV-055 | Bad landing | 4.5–5 m: lands hard, stumbles, a hand to the leg | 1 | In place | 1 | M2 | – |
 | MOV-056 | Leg-breaking landing | Collapses on landing, gets up favouring one leg | 1 | In place | L/R | M2 | – |
 | MOV-057 | Land in water | Splash, go under briefly, surface | 1 | In place | 1 | Sys | – |
 

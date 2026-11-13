@@ -753,3 +753,20 @@ Format: **Decision**: why. _Rejected: alternatives considered._
 - **The developer:** "I am either gonna have a friend come in later, and hand do the animations (he has no experience, so less likely), or im gonna use Higgsfield + Claude to make animations. But later down the line, so for now, what i need you to do it write down every possible animation that needs to be made for our game, adding to it later for guns food, etc other stuff that needs animations. Then, when its time to revist the animations, i have one list, that i just roll through making them with higgsfield, and can then just give all to you to replace ours".
 - **Decided:** the game's own animations come later, made by a friend by hand (less likely) or with Higgsfield and Claude; Epic's sample and code-made stand-ins stay until then. **`docs/animations-to-make.md` is the one list**, written from the whole GDD (306 rows), and every system's design pass adds its rows.
 - _Claude's advice, not yet a decision:_ test the chosen route on three different kinds of clip before producing the whole list.
+
+## 2026-11-13: Footstep noise and falls built; swimming, ladders and ledges wait for our own animations
+
+- **The developer:** "Start footstep noise and falls" (Claude's suggestion for what to do next: the two parts of movement that need no animation, and the noise is what zombies will hear).
+- **Built to the design's numbers** (GDD §25 points 9 and 12): noise by pace, falls by height. **Claude's numbers where the design gave none, all in the settings:** prone 2 m; metal 1.5 times as far, grass and dirt 0.7 times; a landing 8 m of noise per metre fallen, up to 40 m; a 60% chance of a broken leg at 6 m and 90% of death at 12 m, rising in straight lines between the design's heights.
+- **Claude's calls:** noise is one number per character, worked out when asked for; slower than a pace's full speed is quieter in proportion; the stand-in zombie hears by it now (so the old load-test numbers with zombies aren't comparable with new runs); falls are judged and shown but not applied until body-part health exists.
+- **Not done, by agreement:** swimming, ladders and ledge hanging wait for animations (none in the sample).
+- **Found:** the stand-in zombie's borrowed animation blueprint crashes the game since the animation sample's plugins went in. The stand-in zombie now has no animation; the zombie pass gives zombies their own.
+
+## 2026-11-13: Falls hurt from 4.5 m, not 3 m
+
+- **The developer, after trying the falls on the test ramp:** "increase the legs hurt to 4.5".
+- **Conflict Claude pointed out:** breaks started at 4 m, so a 4.5 m start for hurting would leave no band where a fall hurts but never breaks (the developer's earlier rule: "3 - 4 shouldnt break"). Claude asked which was meant, with three choices: hurt starts at 4.5 m and breaks move up to 5 m; hurt still starts at 3 m and the no-break band grows to 4.5 m; or hurt starts at 4.5 m with a chance of a break straight away.
+- **The developer chose:** "Hurt starts at 4.5 m".
+- **Now:** under 4.5 m nothing; 4.5–5 m the legs hurt but never break; from 5 m a chance of a broken leg, rising to 60% at 6 m as before. Everything from 6 m up is unchanged. The 5 m is Claude's number.
+- **Not chosen:** keeping the 3 m start with a longer no-break band; dropping the no-break band.
+- GDD §25 point 9 and chunk 4; `FallHurtFrom` 4.5 and `FallBreakFrom` 5 in the NYZ Movement settings; MOV-055 in the animation list.
