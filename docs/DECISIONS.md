@@ -724,3 +724,32 @@ Format: **Decision**: why. _Rejected: alternatives considered._
 - **Added (Claude's):** `NYZ/Tools/capture_move.ps1`, which plays one leg of the scripted course without a window and tiles a screenshot every 0.1 s into one side-on picture. _Why:_ animation joins can only be judged by eye, and each round cost the developer a close, a try and a recording.
 - **Seen in the captures:** both endings now read as one motion.
 - **Decided: the catch-vault ending is the default** (the developer, shown frame sheets of both: "Catch-vault"). The one-handed ending stays behind the `Climb Over One Handed` switch, off by default. _Not chosen for now:_ the one-handed vault (more athletic: the body goes sideways over the top).
+
+## 2026-11-12: The climb over made fluid
+
+- **The developer:** "It doesnt feel very fluid, also a slight stutter when going up sometimes".
+- **Found in the position log:** at the hand-off between the two clips the rise stopped for a moment and the body stepped 18 cm back from the wall.
+- **Changed (Claude's):** the second clip takes over after its own catch and settle, at a matching height and upward speed; the body is eased onto its path over a quarter of a second; the slow-down at the top ramps in; leaving the wall keeps the clip's forward speed, so the landing is about 1.8 m out instead of 1.2 m.
+- **Checked by the scripted run** alone, against a server and with 80 ms of lag, and in captured frames: a steady rise, no rubberbanding. The feel is for the developer to judge.
+- **The developer's try (2026-11-13):** "noo stutter anymore"; the legs-over slow-down was "a little too much, put it between what it was at and what we have it now". **Decided: 80% of the clip's pace** (it was 100%, then 60%).
+
+## 2026-11-13: Climb over: both endings, half and half
+
+- **The developer:** "can we also have the one handed vault? have both but try to fix the one handed one so it looks right, and there will 5050 chance for either animation?"
+- **Decided:** a climb over a thin tall wall ends with the one-handed vault or the catch-vault at random, 50/50 (one setting for the share). This replaces "catch-vault by default, one-handed behind a switch" from 2026-11-12. The player's PC picks and everyone sees the same ending.
+- **The one-handed vault reworked (Claude's):** the clip never lifts the body faster than a climbing pace (3 m/s), reached smoothly from the climb's own; its own snap to the ledge is replaced by easing the body onto its path in step with the clip, so it never moves back from the wall.
+- **Claude's call:** the speed leaving the wall is capped at 2.7 m/s so the landing stays about 1.8 m out at the faster 80% pace.
+- **Checked** in the position log, captured frames and the scripted run (each ending against a server with lag): no jumps in speed or position, no rubberbanding. Looks are for the developer to judge.
+
+## 2026-11-13: The one-handed vault is a spin; the climb over is catch-vault only until our own clip exists
+
+- **The developer, with screenshots:** the one-handed ending "does a spin around ... the supporting hand (right hand) does a quick flip arounds and ends up on the left side of the screen, when it should stay right. Is there anyway we can fix that or is that just baked into the animation?"
+- **Found:** it's baked in. The sample's running vault turns the body a full 360 degrees; every one-handed move in the sample does (also one mid-air catch, and the rollover hurdles rejected on 2026-11-11). The moves that don't turn all use both hands. What the developer wants is a side vault, which the sample doesn't have.
+- **Offered (Claude):** the sample's two-handed vault as the second ending, or the catch-vault only. **The developer: "Ok no"**, then the plan below.
+- **So, for now (Claude's call):** the climb over ends with the catch-vault every time (the chance of the one-handed ending is 0 by default). The 50/50 pick decided earlier the same day stays in the code for when a side-vault clip exists. The spinning mid-air catch is out of use. _This reverses "both endings, half and half" until then._
+
+## 2026-11-13: Our own animations later, from one master list
+
+- **The developer:** "I am either gonna have a friend come in later, and hand do the animations (he has no experience, so less likely), or im gonna use Higgsfield + Claude to make animations. But later down the line, so for now, what i need you to do it write down every possible animation that needs to be made for our game, adding to it later for guns food, etc other stuff that needs animations. Then, when its time to revist the animations, i have one list, that i just roll through making them with higgsfield, and can then just give all to you to replace ours".
+- **Decided:** the game's own animations come later, made by a friend by hand (less likely) or with Higgsfield and Claude; Epic's sample and code-made stand-ins stay until then. **`docs/animations-to-make.md` is the one list**, written from the whole GDD (306 rows), and every system's design pass adds its rows.
+- _Claude's advice, not yet a decision:_ test the chosen route on three different kinds of clip before producing the whole list.

@@ -44,16 +44,16 @@ Folder `Traversal`. Each exists as a left-foot and a right-foot version unless n
 |---|---|---|
 | `Hurdle_1_0_run` | Running jump over a fence, no hands | Yes: fences up to 75 cm at a jog or sprint |
 | `Hurdle_1_0_walk` | Hands on top, step over | Yes: fences up to 1.5 m when walking, standing, or taller than 75 cm |
-| `Hurdle_1_0_run_V2`, `_walk_V2`, `_stand_V2` | Rolls the body sideways over the fence | **No. Rejected 2026-11-11 ("rollover parkour type vault")** |
+| `Hurdle_1_0_run_V2`, `_walk_V2`, `_stand_V2` | One hand planted, the body spins a full turn over the fence | **No. Rejected 2026-11-11 ("rollover parkour type vault")** |
 | `Vault_1_0_stand`, `_walk` (one foot each) | Both hands on top, over a low wall, then a long fall | Yes: thin walls up to 1.1 m with a drop behind |
-| `Vault_1_0_run` (one foot) | One hand planted (the right), left arm up, legs over, then a long fall | Yes: the same at a run. Also the other ending of a climb over a thin tall wall, when `Climb Over One Handed` is switched on in the NYZ Movement settings (off by default) |
+| `Vault_1_0_run` (one foot) | One hand planted (the right), **the body spins a full 360 degrees** over the wall (measured 2026-11-13), then a long fall | Yes: the same at a run. Also one of the two endings of a climb over a thin tall wall, picked at random half the time (2026-11-13) |
 | `Mantle_1_0_stand`, `_walk` | Hands on a ledge, step up onto it | Yes: onto things up to 1.5 m |
 | `Mantle_1_0_run` | Leaps straight onto the ledge | Yes: only up to 75 cm at a run |
 | `Climb_Start_2_5_stand`, `_walk`, `_run` | Jump, grab a high ledge, pull up, stand | Yes: onto things from 1.5 m to 2.6 m, and the jump and grab of climbing over a thin tall wall |
 | `Catch_Cliff_high_stand` (one) | In the air: grab a high ledge, pull up | Yes: Space held in the air, ledge more than 1 m above the feet |
 | `Catch_Mantle_low_stand`, `_med_stand` (one each) | In the air: grab a ledge at foot or waist height, get onto it | Yes: Space held in the air, lower ledges |
 | `Catch_Hurdle_low_stand`, `_med_stand`, `_high_stand` (one each) | In the air: grab a thin fence, go over | Yes: Space held in the air at a fence |
-| `Catch_Vault_low`, `_med`, `_high` (one each) | In the air: grab, pull up, go over, long fall | Yes, since 2026-11-12: the pull up and over of a thin wall taller than chest height with ground behind it (the developer's pick), after the climb's grab from the ground or by itself from a jump. Never over a drop |
+| `Catch_Vault_low`, `_med`, `_high` (one each) | In the air: grab, pull up, go over, long fall. `_low` and `_high` go straight over on both hands; **`_med` spins a full turn on one hand** (measured 2026-11-13) | Yes, since 2026-11-12: the other ending of a climb over a thin wall taller than chest height with ground behind it, picked at random half the time; after the climb's grab from the ground, or by itself from a jump. Never over a drop |
 
 That is the whole folder: 34 clips.
 
@@ -71,6 +71,10 @@ That is the whole folder: 34 clips.
 | `AimOffset` | 17 | The upper body looking up, down, left and right. Not used yet |
 
 ## What does not exist
+
+Everything the game needs that has to be made, clip by clip, is in [animations-to-make.md](animations-to-make.md). The short version:
+
+- **A one-handed vault that doesn't spin** (a side vault: one hand planted, legs swinging over to the side). Every one-handed move in the sample turns the body a full circle; the vaults that don't turn all use both hands.
 
 No clip in the sample does any of these. Each needs another free source (for example Mixamo), a bought pack, or a rough stand-in made by Claude (GDD §25).
 
