@@ -57,7 +57,7 @@ These aren't design choices. They follow from section 2 and limit everything els
   - **Player cap is a server setting**, so servers can run lower if the load test or hosting cost demands it.
   - **Players see each other up to 500 m** (the developer, 2026-11-08: "500 m", choosing between 500 m and 1 km). The server sends nobody farther away than that, so a player farther off doesn't show, even through a scope. The server's cost grows with this distance; Unreal's default is 150 m. Set on the test character, so the load test measures it. A starting number, changed after the test if long-range shooting needs more. _Not chosen:_ 1 km (Claude's other option).
   - **How to test without 300 people:** headless bot clients (launched with `-nullrhi -nosound`) connect to a dedicated server and run a simple bot script (move, sprint, loot, shoot). About 20–30 fit on the developer's PC when the bots run the packaged game (measured 2026-11-08, §24); rent several cloud machines for 300. Measure server tick rate, bandwidth per player, and server CPU/memory with Unreal Insights. Simulate lag and packet loss with UE5's network emulation.
-- **Zombie count is the hardest number in the game.** Every zombie runs its AI on the server and has to be replicated. That cost multiplies with 250–300 players spread across a map, since more of the map has players near it and so more zombies need full AI. We'll need AI LOD: full AI near players and cheap or dormant AI far away. **Mass Entity** (UE5's crowd framework) is an option for hordes. Target zombie count per server: _TBD_.
+- **Zombie count is the hardest number in the game.** Every zombie runs its AI on the server and has to be replicated. That cost multiplies with 250–300 players spread across a map, since more of the map has players near it and so more zombies need full AI. We'll need AI LOD: full AI near players and cheap or dormant AI far away. **Mass Entity** (UE5's crowd framework) is an option for hordes. Target zombie count per server: _TBD_. **Decided 2026-11-13 (the zombie pass, §8):** 63,645 in the city as cheap rows of data (first estimated at about 80,000), fully active only within about 200 m of a player (about 20 per player on average, about 6,000 at once, at most about 60 around one player), with our own light movement run by one manager; Mass Entity isn't used for now.
 - **First and third person.** The third-person camera lets players look over walls and around corners without exposing themselves. DayZ deals with this through first-person-only servers. **Decided: a server setting, "first person only" or "both"; official servers offer both kinds (§17).**
 - **Consoles later.** Nothing has to be built for consoles now, but avoid things that are hard to undo: mouse-only UI, performance budgets that only high-end PCs can meet. Console certification and crossplay are each a project of their own.
 
@@ -152,7 +152,7 @@ A running list from other sections; the full points-of-interest pass is still to
       | + Manhattan | 6.9 s | 2.2 GB | 2.6 GB | 0.18 GB |
       | **+ the whole city** | **13.4 s** | **5.45 GB** | **8.5 GB** | **1.32 GB** |
 
-      **The whole city's buildings cost the server about 3.7 GB**, more than the 2–3 GB estimated: collision came in as predicted (about 53 bytes a triangle), and the 9,140 tile objects and their physics add about 2.4 GB more. _Corrected 2026-11-11 (Unreal's memory tracker on the server):_ the extra is mostly **a second copy of every building triangle kept for navigation (2.0 GB)**, not the tile objects. Unreal keeps it on each mesh so a navigation mesh can be built from it. It can't simply be switched off: a mesh without it is ignored by the navigation mesh, so zombies would path through buildings. **For the zombie pass:** with the city's navigation mesh built ahead of time (the plan, §24 point 4), the server shouldn't need this copy; finding a clean way to leave it out could save about 2 GB per server. A server with the whole map loaded needs about 9 GB free to start (the loading peak) and 5.5 GB to run, before players, zombies and loot. Affordable on one machine, so the whole map can stay loaded on the server for now; the per-object overhead is the thing to watch (interiors, doors and loot would add objects, the test block said about 60 MB a block). Not yet measured: the editor with the whole city (load around the camera, `follow_camera.py`, 1 mile).
+      **The whole city's buildings cost the server about 3.7 GB**, more than the 2–3 GB estimated: collision came in as predicted (about 53 bytes a triangle), and the 9,140 tile objects and their physics add about 2.4 GB more. _Corrected 2026-11-11 (Unreal's memory tracker on the server):_ the extra is mostly **a second copy of every building triangle kept for navigation (2.0 GB)**, not the tile objects. Unreal keeps it on each mesh so a navigation mesh can be built from it. It can't simply be switched off: a mesh without it is ignored by the navigation mesh, so zombies would path through buildings. **For the zombie pass:** with the city's navigation mesh built ahead of time (the plan, §24 point 4), the server shouldn't need this copy; finding a clean way to leave it out could save about 2 GB per server. _Settled 2026-11-13 (zombie pass, §8 "Finding the way"): there's no navigation mesh over the city at all (zombies steer outdoors and use room maps inside), so the copy isn't needed._ A server with the whole map loaded needs about 9 GB free to start (the loading peak) and 5.5 GB to run, before players, zombies and loot. Affordable on one machine, so the whole map can stay loaded on the server for now; the per-object overhead is the thing to watch (interiors, doors and loot would add objects, the test block said about 60 MB a block). Not yet measured: the editor with the whole city (load around the camera, `follow_camera.py`, 1 mile).
     - **40 bots among the city's buildings (2026-11-10;** the developer: "Yes, run it"**):** the 230 test starts re-placed off the buildings first (`NYZ/Tools/place_test_starts.py` now traces down and moves a spot that lands on a building to open ground within 60 m: 44 moved, none dropped). Same run as on bare terrain (packaged server, bots spread over the city, `-Crowd 0`):
 
       | Bots | Main thread busy, bare terrain | **With the city** | Server CPU | Updates/s | Slowest | Sent per player |
@@ -372,15 +372,16 @@ Built around the "easy to learn" principle: a few stats always on screen, condit
 ### Types and speed
 - **A few different speeds, based on how fresh the zombie is.**
 
-| Tier | Speed | Where they're found |
-|---|---|---|
-| **Fresh** (recently turned) | Between a walk and a run. Not a full run | Rare. Near recent deaths, and players' bodies that turned (§10) |
-| **Weathered** | Normal walk | Most zombies |
-| **Decayed** | Shamble | Common in old, settled areas |
-| **Crawler** | Crawl | Any zombie with destroyed legs |
+| Tier | Speed | Chasing | Wandering | Where they're found |
+|---|---|---|---|---|
+| **Fresh** (recently turned) | Between a walk and a run. Not a full run | **4.5 m/s**: faster than a jogging player (3.5), slower than a sprint (6) | about 2.2 m/s | Rare. Near recent deaths, and players' bodies that turned (§10) |
+| **Weathered** | Normal walk, a brisk one | **2.0 m/s**: faster than a walking player (1.6), slower than a jog | about 1.0 m/s | Most zombies |
+| **Decayed** | Shamble | **1.2 m/s**: slower than a walking player | about 0.6 m/s | Common in old, settled areas |
+| **Crawler** | Crawl | **0.4 m/s** | about 0.2 m/s | Any zombie with destroyed legs |
 
-- _Exact speeds per tier: tuning, during development._
-- **No regular zombie runs at full speed.** _Implication (analysis): a sprinting player can outrun any regular zombie until stamina runs out._
+- **Speeds decided 2026-11-13 (the zombie design pass).** Claude proposed them; **the developer: "Yes, all four"** (to the speeds, hearing, sight and losing you, below). Wandering is about half the chasing speed. _Why (Claude's):_ it fits the player's paces (§25 point 1): a jog outruns walkers and shamblers but not Fresh ones, and a sprint outruns them all. Tuning may still move the numbers; that order against the player's paces stays.
+- **The mix across the city:** about **70% Weathered, 25% Decayed, 5% Fresh** (decided with the speeds). It varies locally: more Decayed in old, settled areas, Fresh near recent deaths. Crawlers aren't in the mix; they come from destroyed legs.
+- **No regular zombie runs at full speed.** _Implication (analysis): a sprinting player can outrun any regular zombie until stamina runs out._ What lets a player shake off a Fresh zombie once the sprint runs out is **losing you** (Senses, below).
 - **Variants by what they were:** civilian, police, firefighter, military, hospital staff. Clothing decides toughness and loot (military: armor and military gear; police: pistols and ammo). DayZ-style.
 - **Special zombies:**
   - **1–2 special types at most.** Not overkill.
@@ -397,13 +398,72 @@ Built around the "easy to learn" principle: a few stats always on screen, condit
 - **Footwear changes footstep noise.** Boots are clunkier and louder; sneakers are quieter. This matters most up close and crouched.
   - **The same footstep sound is heard by other players**, so sneakers are also a PvP choice for sneaking up on people.
   - **Boots protect more to balance being louder:** they block more bites to the legs and feet, keep you warmer and last longer. Sneakers are quiet but protect less and wear out faster.
-- **Sight:** worse at night, in rain and in fog.
+- **How hearing works (decided 2026-11-13, the zombie pass; Claude proposed, the developer: "Yes, all four"):**
+  - **Footsteps:** a zombie hears a player who is inside that player's own noise distance (§25 point 12: sprint 30 m, jog 15, walk 6, crouched 3, prone 2; metal floors 1.5 times as far, grass and dirt 0.7 times; a landing 8 m per metre fallen, up to 40 m). Built, and the stand-in zombie already hears this way.
+  - **Loud noises:** one shared kind of noise for anything loud (gunshots, breaking glass, banging, car alarms, generators). Each system sets how far its noise carries when it's designed.
+  - **Rain:** every hearing distance drops to 70% (§19: rain muffles noise).
+  - **Walls and floors:** a wall or floor between a loud noise and the zombie halves that noise's distance. **Footsteps aren't checked for walls.** _Claude's reason: footsteps carry 30 m at most and are checked all the time for every zombie near every player, so a wall check on each would cost server time for little; loud noises are rare, so checking them is cheap._
+  - **A noise sends a zombie to the place it came from, not straight at the player.** _Why: noise draws them to a place; sight turns that into a chase._ _How fast it goes there and how long it looks around: tuning (Claude's start: its wandering pace, then the search under "Losing you")._
+- **Sight:** worse at night, in rain and in fog. **How it works (decided 2026-11-13, the zombie pass; Claude proposed, the developer: "Yes, all four"):**
+  - A zombie needs a **clear line** to the player and sees in a **cone of about 120°** in front of it.
+  - **Distances:** standing **30 m**, crouched **15 m**, prone **7 m**. **Standing still halves these.**
+  - **Conditions,** once they exist (§19): night ×0.5, rain ×0.8, harbor fog ×0.4. Everything multiplies: crouched and still at night is about 4 m.
+  - **Anyone within 2 m is noticed** whatever the direction or conditions.
+  - Within half its distance a zombie notices at once. **Beyond half, it takes about a second of looking**, so a player who drops or ducks out of view in time isn't seen.
+  - _Why: it's easy to read. Stand tall in the open and they see you; stay low and still and they don't._
+  - _Flashlights:_ whether a lit flashlight draws zombies is §19's "leaning yes", final once the lore decides what the infection is (the lore revisit is pending). Decided when flashlights are built (items).
+- **Losing you (decided 2026-11-13, the zombie pass; Claude proposed, the developer: "Yes, all four"):** a zombie that can neither see nor hear its target for **about 10 s** walks to **the last place it saw them**, **searches for about 30 s**, then goes back to wandering. **A door in the way doesn't stop it: it beats the door down to get there** (the developer, 2026-11-14: "it should lose you, but still be trying to get to the players last location, which would be behind the door"); the 30 s start once it's through. _Why: breaking line of sight becomes a real escape. It has to be, since Fresh zombies outrun a jog and a sprint runs out (§25 point 3)._
 
 ### Hordes (Zomboid-style)
 - Noise **pulls zombies together**, and groups **migrate across the city** over time.
 - A loud gunfight can bring a horde down on everyone nearby, so noise is both a weapon and a risk in PvP.
 - **Cleared areas stay cleared for a while** and refill slowly as hordes wander in. Zombies don't respawn out of thin air.
 - **NYC chokepoints:** bridges and tunnels. **Subways:** dark, packed danger zones.
+- **Groups and hordes (decided 2026-11-13, the zombie pass; Claude proposed, the developer: "Yes, all of them"):**
+  - **Small groups of 3–10** everywhere.
+  - **Roaming hordes of 30–100** drift slowly along the streets, are drawn by big noises, and cross bridges and tunnels (§9).
+  - **At most about 60 fully active zombies around one player**, closest first (see "Sleeping and waking").
+  - **For base damage (§9):** a **small horde** is fewer than 10 zombies beating on something at once; a **large horde** is 10 or more.
+
+### How many, and where (decided 2026-11-13, the zombie pass; "Yes, all of them")
+- **63,645 zombies in the whole city** (decided 2026-11-13: the developer, "Keep 63,645"; 63,863 in the current file since they were placed again in groups, 2026-11-14, same densities), kept as cheap rows of data until a player comes near. _It was "about 80,000", Claude's estimate from the densities below; placing them by those densities gave 63,645 (Building it, chunk 2), and the developer kept the densities rather than raising them to reach 80,000._
+- **Density:** about **400 per km² in Manhattan**, **100** in other built-up areas, **30** in parks and along the edges. _That's about 9 on a Manhattan block, about 50 within 200 m of a player there._
+- **Killed zombies are gone for good.**
+- **Refill:** new ones arrive slowly **from the edges** (the wall, bridges and tunnels) and **climb up out of subway entrances** (about 470 stations, from the MTA's free data, already planned for the street tool). **Never in sight of a player.** Bodies that turn add Fresh zombies (§10).
+  - _Why (Claude's): refill only from the edges would slowly empty the middle of the city over a 6–12-month wipe with 300 players killing; the subway entrances refill the middle, and a zombie climbing out of the subway still isn't "out of thin air" (Hordes, above). Conflict Claude pointed out before it was decided._
+
+### Sleeping and waking (decided 2026-11-13, the zombie pass; "Yes, all of them")
+- **Within about 200 m of a player**, a zombie is **fully active**: it moves, uses its senses and can be seen.
+- **Farther out it's a row of data** that only drifts with its group and reacts to big noises, checked every few seconds.
+- **Zombies are seen up to about 200 m** (players 500 m). A cheap long-range view for scopes could come later.
+
+### Night (decided 2026-11-13, the zombie pass; "Yes, all of them")
+- **More zombies come out onto the streets at night, and they wander more.** Sight halves (Senses, above). Built when day and night exist (§19).
+
+### Attacks (decided 2026-11-13, the zombie pass)
+_Claude proposed; **the developer: "Yes, all five"** (to attacks, doors, windows, fences and climbing, and finding the way, here and under "Getting to you")._
+- **Swipe:** within about **1.5 m**, a zombie swipes about **every 1.5 s**. Each swipe has a **0.5 s wind-up** the player can step out of. **A swipe that lands is a scratch** (low infection chance, below).
+- **Grab:** if it reaches the player **from behind**, or the player is **standing still or cornered**, it grabs instead. It **holds for about 1.5 s, then bites** (high infection chance) **unless shoved off**. Shoving comes with melee; until then a grab always ends in a bite.
+- **Until body-part health exists (§7):** each hit is shown on the test readout and in the log (body part, scratch or bite, the infection roll), the way falls are (§25 point 9), and not applied. A hit that lands also **slows the player to walking pace for 0.4 s** (a stagger).
+- _Why: a jogging player gets clear of the wind-up; a walking one doesn't._
+
+### Getting to you (decided 2026-11-13, the zombie pass)
+_Same answer: "Yes, all five"._
+- **Doors:** **zombies can't open doors.** A zombie that knows a player is behind a door **beats on it**, and the banging is a loud noise that draws others. "Knows" means anything but wandering: chasing, going to a noise, or going to where it lost someone (2026-11-14). **An ordinary city door gives way after about 30 s of one zombie**, faster with more (_tuning; Claude's start: 30 s shared between however many are beating on it_), and **stays broken open until the central economy resets it**, like opened containers (§12). Doors players built or barricaded follow the material tiers (§9).
+  - **This is the one exception to §9's "City buildings can't be destroyed":** the door breaks open; the building is untouched. (Conflict Claude pointed out before it was decided.)
+- **Windows:** zombies get through **any open or broken ground-floor window** the way they get over a low fence. They **break a closed one** (a loud noise) **only when they know a player is inside.** _The rest is designed with the city tool (§5); interiors have no windows yet._
+- **Fences and climbing:**
+  - **Over anything up to 1.1 m**, slowly (**about 2 s**), sometimes falling on the far side. **Nothing taller, ever**: they go round, or break a player-built one (material tiers). _This fills §8's old gap between "waist-high or lower" and "taller than a person"._
+  - **They reach about 1.5 m up.** A car roof (about 1.5 m) isn't safe; a 2 m wall or a ledge is. Below a player they can't reach, they **crowd together clawing upward**.
+  - _Why: a chest-high wall stops zombies but players can hurdle it (to 1.5 m, §25), so it's a real escape._
+  - **No ladders** and **no ledges** (§25 point 5), as before.
+- **Finding the way (option A chosen):**
+  - **Outdoors** a zombie walks straight at what it sees or hears and **slides along walls**.
+  - **Inside buildings with interiors** it follows a **room map** made with each building by the city tool (rooms, stairs and the doors between them), and to get in it heads for **the nearest door**.
+  - **No navigation mesh over the city.** That frees about **2 GB per server**: the navigation copy of every building triangle (§5) isn't needed.
+  - _Known cost:_ a zombie can get stuck behind a corner when it can't see the player. If they look too dumb in testing, option B can be added later near players without redoing the rest.
+  - _Implication:_ curbs (15 cm, §24 map stage 1) and steps must be things the zombies' own movement steps up.
+  - _Not chosen:_ **B**, a navigation mesh built live around players (smarter, but it uses background CPU on the server and keeps the 2 GB); **C**, a navigation mesh of the whole city built ahead (the smartest, several GB).
 
 ### Killing zombies
 - **Only head damage kills.**
@@ -422,15 +482,103 @@ Built around the "easy to learn" principle: a few stats always on screen, condit
 - **Damage to a base depends on its building-material tier:**
   - **Tier 1:** small and large hordes both take it down easily.
   - **Tier 4:** a small horde can't damage it at all; a large horde wears it down over time.
+  - **Small horde:** fewer than 10 zombies beating on it at once. **Large horde:** 10 or more (decided 2026-11-13).
   - _Tiers 2–3 and exact numbers: designed with base building._
-- **Climbing:**
-  - **Low fences** (waist-high or lower, the kind you can hobble over): zombies climb over them slowly and sometimes fall.
-  - **Fences taller than a person:** zombies can't climb them. The only way through is breaking them, following the material-tier rules above.
+- **Climbing** (heights decided 2026-11-13, under "Getting to you"):
+  - **Low fences** (up to 1.1 m, waist-high or lower, the kind you can hobble over): zombies climb over them slowly (about 2 s) and sometimes fall.
+  - **Anything taller than 1.1 m** (it was "taller than a person" until 2026-11-13): zombies can't climb it. The only way through is breaking it, following the material-tier rules above. They reach about 1.5 m up, so a defender needs to stand higher than that.
   - **Ladders:** zombies can't climb them, so ladders matter in base design.
 
+### Server budget (decided 2026-11-13, the zombie pass; "Yes, all of them")
+_Milestone 1's middle ground (§24): every system's design pass writes its server budget._
+- **All zombies together: at most about 30% of the server's main thread at 300 players** (about 0.1% per player).
+- **About 20 fully active zombies per player on average**, so about 6,000 at once; **at most about 0.005% of the main thread each**, about 1.7 microseconds per server update. _The stand-in measured about 0.066% each (§24 point 4), about 22 microseconds: zombies need to be about 10 times cheaper, so they get **their own light movement, all moved together by one manager**, rather than each being a full character (Unreal's Character Movement). **Mass Entity isn't used for now.**_
+- **If the bot run misses it,** the fallbacks are about 10 active zombies per player, or a smaller waking radius.
+- **Sending zombies to players:** at most about **2 KB/s per player**.
+- **The city's rows of zombie data:** at most about **50 MB**.
+- **Animals share this budget** (§22).
+- **The one check:** a standard 5-minute bot run once their core works (§24 milestone 1's middle ground), reporting main-thread busy % and CPU. **Done 2026-11-13** (Building it, chunk 3): about **0.012% per awake zombie** all in, 0.008% for the manager alone, against 0.005%; sending and memory within budget.
+
+### Stand-in look, until our own animations (decided 2026-11-13, the zombie pass; "Yes, all of them")
+- **A, now:** the animation sample's mannequin, **tinted by tier**, playing the sample's walk and idle clips slowed down. No animation blueprint (the template's crashes since the sample's plugins went in).
+- **B, next:** **Mixamo's free zombie set** (a free Adobe account; free to use in games): walk, run, idle, attack, bite, hit, death, crawl, stand up, plus zombie characters. The developer downloads about 20 files and Claude fits them to our skeleton. Covers most of the milestone 2 zombie animations until our own ([animations-to-make.md](animations-to-make.md) §10).
+
+### Built with other systems, not in the zombie pass
+- **Killing and head-only damage:** melee and guns.
+- **Real damage and infection:** health (§7).
+- **Bodies turning:** death and respawn (§10).
+- **Variants' clothes and loot:** loot.
+- **Vehicles** (beating on cars, dragging riders off bikes).
+- **The two special zombies:** lore areas.
+- **Flashlights:** items (and the lore revisit, §19).
+
+### Building it (plan approved 2026-11-13: the developer, "Yes, start chunk 1")
+1. **Light zombie body. Built 2026-11-13.**
+   - **One manager moves every zombie** (`NYZ/Source/NYZ/NYZZombies`, a world subsystem on the server): each frame it moves the share of zombies that's due, so each moves **10 times a second** (`MovesPerSecond`), in turn. A move: straight at its goal, raised by a step's height (45 cm) so curbs and steps don't stop it; a wall or a player stops it and it slides along with what's left; then down onto the ground (drops up to 4 m; deeper, or 1 m below sea level, counts as a cliff or deep water and it picks another goal). Stuck for 2 s: another goal.
+   - **The zombie itself is light** (`NYZZombie`): a capsule, no Character Movement, no tick, no mesh or animation on the server. Players bump into it; **zombies pass through each other** (no crowd spacing yet). Sent to players 10 times a second, **seen up to 200 m**.
+   - **Wandering only:** a spot up to 20 m off at half its chasing speed, standing a few seconds now and then. Senses and chasing come in chunk 3.
+   - **Stand-in look (A):** the sample's mannequin in a plain colour by tier (Fresh red, Weathered grey-green, Decayed tan, crawler dark), playing the sample's idle, walk and jog clips at the zombie's pace; on screens the body glides between the server's positions. _Claude's call:_ a plain colour, not the mannequin's texture tinted, because the sample's material has no colour setting; the material (`/Game/Characters/Zombie/M_ZombieStandIn`, out of git like the sample) is made by `Tools/make_player_character.py`.
+   - **Numbers** in Project Settings > Game > **NYZ Zombies** (speeds by tier, wander share, the mix, moves a second).
+   - **Test commands** (console; on a server put `ServerExec` first): `ZombieSpawn 20` (around you, 5–30 m off, where you can see), `ZombieCome` (every zombie within 200 m walks to you at its chasing speed), `ZombieClear`.
+   - **Replaces the stand-in zombie** of §24 point 4: `-zombies=N` and `-blockzombies=N` make the new ones. They don't chase, open doors or follow the test block's navigation mesh any more (senses in chunk 3, doors and room maps in chunk 4), so **load-test runs with zombies aren't comparable with earlier ones.** The server's stats line now also gives zombie moves a second and metres walked.
+   - **Checked (Claude, windowless):** 30 zombies on the load-test map with one player joined: about 250 moves a second and 218 m walked every 10 s (0.7 m/s each on average, wandering with pauses); the player's side loads the look with no errors; screenshots of an offscreen game on the movement test map show the three colours walking, sliding round the boxes and gathering at the player after `ZombieCome`. **Not checked:** how it looks and feels in the editor (the developer's to judge); cost (the bot run after chunk 3).
+2. **Waking and sleeping across the city. Built 2026-11-13** (the developer: "next step").
+   - **Placing them:** the docs repo's `tools/map/seed_zombies.py` (QGIS's Python, about a minute) spreads the city's zombies by the decided densities over 100 m cells: **built-up** means a cell at least 3% covered by NYC's building list; **Manhattan's** are cells whose buildings are mostly in MN districts; everything else inside the border and above water is **parks and edges**. Never inside a building, in water (1 m below sea level) or past the border. It writes `NYZ/Data/NYC_zombies.bin` (0.8 MB, out of git like the city; packaged as a plain file through the game's build rules, `NYZ.Build.cs`: kept inside `Content` it was silently left out of the package, found in the bot run of 2026-11-13); the server reads `<map>_zombies.bin` for whatever map it loads, so test maps have none.
+   - **The count came out at 63,645, not "about 80,000":** 17,506 over 45 km² of built-up Manhattan, 38,248 over 382 km² of other built-up land, 7,891 over 265 km² of parks and edges (New Jersey counts as edge until its buildings come in map stage 1). _The 80,000 was Claude's estimate of the land; the densities are what was decided. **The developer: "Keep 63,645"** (not raising the densities by a quarter to reach 80,000)._
+   - **On the server:** sleeping zombies are rows of data (position and tier, 2.0 MB for the city), kept by 200 m squares. Twice a second: an awake zombie with no player within 220 m goes back to sleep where it stands (a test-spawned one gets a new row); then around each player the nearest sleeping ones within 200 m wake, up to 60 awake around them. A woken zombie is put on whatever ground is there now. Numbers in NYZ Zombies (`WakeMetres`, `MostAwakePerPlayer`). _Shortcut:_ the whole check runs in one go (a few ms with thousands awake); spread over frames if the bot run shows it.
+   - **Readout:** "Zombies within 200 m" above the stamina bar. The server's stats line: `zombies` is now all of them (asleep and awake), `awake` the actors.
+   - **Checked (Claude, offscreen game on the NYC map):** all 63,645 loaded; at two fixed Manhattan spots exactly the zombies the file has within 200 m woke (35 and 19), the readout matched, and moving 1 km sent the first spot's back to sleep. **Not checked:** a dedicated server (the editor's own server program crashed loading NYC before; the packaged server is used for the bot run), and how it looks.
+3. **Senses. Built 2026-11-13** (the developer: "start chunk 3"), to the design above (hearing, sight, losing you).
+   - **Checked every move** (10 times a second), against the players within 50 m only (looked up by 50 m squares each frame).
+   - **What a zombie is doing** (wandering, going to a noise, chasing, searching) is sent to players: the readout shows how many within 200 m are chasing and looking around, and the Spot and Search animations will use it.
+   - **Seeing:** staring at someone far off, it stands and turns to face them for the second of looking. Chasing, it heads for its target while it sees or hears them, else for where it last did, and stops at arm's reach (attacks: chunk 5).
+   - **Hearing:** footsteps by the built noise distance; loud noises through one call any system can make (`HearNoise`, where and how far). A noise or footsteps send it to the spot at its wandering pace; there it searches.
+   - **Searching:** short walks up to 6 m around the spot, with pauses, for 30 s; then back to wandering.
+   - _Claude's calls:_ eyes and ears 1.6 m up; other zombies don't block a zombie's view (only buildings, walls and the ground); the cone is judged flat (a player straight above but within reach is "in front"); a chasing zombie stuck against a wall keeps pushing until it loses its target, and at a drop it can't take it waits at the edge; sleeping zombies don't hear loud noises yet (hordes, chunk 6); no night, rain or fog multipliers until those exist.
+   - **Numbers** in NYZ Zombies, "Senses": sight by stance, the cone, always-noticed distance, seconds of looking, seconds to lose you, seconds of searching.
+   - **Test commands:** `ZombieCome` now makes every zombie within 200 m give chase as if it had just seen you; new `ZombieNoise 60` makes a loud noise where you stand, heard to 60 m.
+   - **Checked (Claude, offscreen game on the movement test map):** 10 zombies spawned 5–30 m around a standing player: 7 gave chase within 6 s, the other 3 had heard the player's hard landing and were going to look; with the player lifted 40 m out of sight and hearing, all 15 kept heading for where they last saw them, switched to searching after the 10 s, and were still searching 32 s later; all 10 heard a `ZombieNoise 60` and went to look. **Not checked:** how it feels to play (the developer's to judge).
+   - **The one 5-minute bot run, done 2026-11-13** (`run_bots.ps1 -Count 40 -Step 10 -Map /Game/Maps/NYC -Crowd 0`, packaged server and bots; pass was about 0.005% of the main thread per awake zombie). _Added for it (Claude's call):_ the server's stats line gives the zombie manager's own main-thread time (`zombie_ms_per_s`). A first package left the zombie file out (it was in `Content`, see chunk 2), so that run had no zombies and became the same-package baseline.
+
+     | Bots | Awake zombies | Main thread busy | Same package, no zombies | Zombie manager alone | Server CPU | Sent per player |
+     |---|---|---|---|---|---|---|
+     | 10 | 126 | 8.1% | 6.6% | 9.5 ms/s | 0.11 cores | 2.5 KB/s (1.6 without) |
+     | 20 | 217 | 10.7% | 8.4% | 16.2 ms/s | 0.14 cores | 2.4 KB/s |
+     | 30 | 307 | 14.3% | 11.6% | 23.1 ms/s | 0.18 cores | 2.3 KB/s |
+     | 40 | 394 | 20.6% | 14.7% | 34.1 ms/s | 0.24 cores | 2.3 KB/s |
+
+     - **Reading:** each awake zombie costs about **0.012%** of the main thread all in (0.009–0.015% across the four sizes), about 4 microseconds per server update. The manager itself (moving, senses, waking and sleeping) is about **0.008%** of that, about 10 microseconds per move at about 9 moves a second each; the rest is mostly sending them to players. **About 5.5 times cheaper than the stand-in (0.066%), but about 2.4 times over the 0.005% target.** Sending is within budget (about 0.8 KB/s per player extra with about 10 awake each); the city's sleeping zombies take 1.8 MB (budget 50 MB); server memory up 0.1 GB.
+     - **Projection** (spread bots got about 10 awake each, fewer than the plan's 20 because most started outside Manhattan): 300 players with 20 awake each, 6,000 zombies, would be about 72% of the main thread against the 30% budget; with 10 each (the written fallback), about 36%.
+     - **Ways to close the gap** (not done; for the developer to choose, or the optimizing pass): 5 moves a second instead of 10 (a setting; roughly halves the manager's part and the sends; to be judged by eye); cheaper moves (fewer collision checks per move, e.g. reusing the ground height when nothing was hit); the written fallbacks (10 awake per player, or a smaller waking radius); a profile of a run (`-Profile`) to see where each move's 10 microseconds go.
+4. **Getting to you. Built 2026-11-14** (the developer: "start").
+   - **Room maps** (§8 finding the way): the test block's builder (`NYZ/Tools/build_test_block.py`) writes each building's map with it: a point on each side of every door, one in each room, along the corridor and up the switchback stairs, linked where they can be walked in a straight line, plus each room's and corridor's box so a zombie knows which space it's in (13,176 points over the 4 blocks). A zombie whose goal or self is inside a building plans a route over it (in from the point in front of the front door, the nearest door); a closed door on the way counts as 20 m longer. The test block's navigation mesh stays for the load-test bots only.
+   - **Doors:** a zombie that isn't just wandering beats on a closed door it walks into; each blow (one a second) is a loud noise heard to 30 m; a door breaks after 30 zombie-seconds in all and stays open (it can't be closed again). _Shortcut:_ broken doors mend when the server restarts; the central economy's reset comes with loot.
+   - **Losing you and doors (decided 2026-11-14, the developer):** _"it should lose you, but still be trying to get to the players last location, which would be behind the door"._ So a zombie still loses you after 10 s, then goes to where it last saw you **through any door in the way, beating it down**; its 30 s search starts once it's through (the search time waits while it beats on a door). **Every zombie but a wandering one** (chasing, going to a noise, or searching where it lost someone) beats on a closed door in its way. **Zombies drawn by the banging head for where the beater was trying to get**, so they reach the same door and help break it. _Replaces Claude's first take the same day (a zombie beating on a door didn't lose you meanwhile), which the developer turned down._
+   - **Fences:** a zombie that walks into something whose top is within 1.1 m of its feet, with room for its body over it and ground beyond, climbs over in 2 s (up on top, then down the far side), lying 1.5 s after one climb in four (a fall). Anything taller it goes round. **Chasing and stuck behind something for 2 s, it sidesteps 4 m to one side** (random), then tries again: round a fence, a car or a corner (Claude's call).
+   - **Reaching up** needs no code of its own here: a chasing zombie stops within reach and stands clawing; how high it reaches (1.5 m) decides whether its attacks land, with attacks (chunk 5).
+   - **The zombie's body is now 1.7 m** (was 1.8 m), and its step up lifts only its feet, not its head: with the head lifted it was 2.25 m tall when stepping and couldn't pass a 2.1 m doorway (found in this chunk's check).
+   - **Windows:** not built; interiors have none yet (city tool).
+   - **Numbers** in NYZ Zombies, "Getting to you": climb height, climb time, fall chance, seconds to break a door, how far a blow carries.
+   - **Checked (Claude, offscreen games):** in the test block, with the developer's rule, a player silent in a room on floor 1, 33 m from the front door, and zombies called from the street: they lost the player after 10 s, kept heading for that room, broke three doors on the way and found the player within 30 s (9 within 3 m). Before that, with a loud noise every 4 s: zombies beat the front door open in about 10 s, went up the stairs, beat the room door open about 40 s later and reached the player (20 within 3 m after 140 s). On the movement test map: zombies climbed the 0.6–1.1 m fences (5 climbs) and none climbed the 1.3 m one; all 8 went round it within about 18 s once the sidestep was in. **Not checked:** how it looks (the stand-in jumps onto a fence and down; zombies stand inside one another), a bot run (not needed for this chunk).
+   - _Test helpers added:_ the zombie manager can describe its zombies for scripts (`DescribeForTest`, `DescribeNear`), and buildings give their room-map points.
+5. **Attacks. Built 2026-11-14** (the developer: "just do all zombie system").
+   - Within reach (1.5 m across, and no more than 1.5 m above its feet), a chasing zombie winds up for 0.5 s and then **swipes**; if the player stepped out of reach meanwhile it misses. A landed swipe is a **scratch**. If it reaches the player **from behind** (within the 120 degrees behind their back) or the player is **standing still or barely moving** (under 0.5 m/s, which also stands in for "cornered": Claude's call), it **grabs** instead: the player is held where they stand for 1.5 s, then **bitten**. One attack every 1.5 s.
+   - **On the player's side:** each hit shows on the readout (red, under the fall line) and in the log: scratch or bite, the body part (§7's six; a weighted roll for now, arms and torso most), the infection chance and what it rolled. **Not applied** until body-part health exists. A scratch or bite slows the player to a walk for 0.4 s; a grab holds them still (on the server and on the player's own PC, so it doesn't rubberband).
+   - _Claude's starting numbers (tuning):_ scratches 10% infection, bites 60% ("bites high, scratches low", §8).
+   - _Consequence:_ a held player counts as standing still, so a crowd grabs and bites in turn until shoving exists (melee).
+   - **Numbers** in NYZ Zombies, "Attacks".
+   - **Checked (Claude, offscreen):** 6 zombies on a player standing still: grabs and bites (17 in 12 s), the player's top speed 0 while held and a walk after a bite; one zombie on a player walking in a tight circle: scratches when it came at them from the front, a grab from behind.
+6. **Hordes and refill. Built 2026-11-14.**
+   - **Groups:** `tools/map/seed_zombies.py` now places the city's zombies in **small groups of 3–10** (each within 6 m of its group's centre), at the same densities, and **5% of them in roaming hordes of 30–100** (Claude's starting share; the design gave no number) in the built-up areas: **63,863 zombies in 9,481 small groups and 52 hordes (3,191 zombies)**. _The count moved from 63,645 because the spots were drawn again; the densities, which the developer kept, are unchanged._
+   - **Roaming hordes** drift at 0.3 m/s towards a far spot (1–3 km) while all their members sleep, one step every 5 s, turning to another far spot when a building, the water's edge or unloaded ground is ahead. Members that wake act on their own; asleep again within 50 m of the horde they rejoin it, else they're on their own. A horde with members awake waits for them. _Not along streets yet:_ the street tool's data will let them follow streets; bridges have no decks yet (map stage 1), so hordes can't cross water.
+   - **Big noises pull sleeping zombies too:** any loud noise (`HearNoise`) also reaches sleeping zombies in range (walls not checked for them) and any roaming horde one of whose members hears it. Pulled sleepers walk to the noise at 1 m/s and, if they wake on the way, carry on going to it. _Claude's call:_ small groups don't drift while asleep, only when pulled (drifting rows would pass through buildings with no street data to follow).
+   - **Refill:** killed zombies (for now, only those `ZombieClear` removes) come back slowly: every minute 2% of the shortfall arrives as sleeping zombies at one of **120 entry points along the wall** (every 500 m of its land stretches, 30 m inside), never within 300 m of a player. **Up out of subway entrances** too (added 2026-11-14, the developer: "Yes, download it"): the MTA's "Subway Entrances and Exits: 2024" (data.ny.gov, 2,120 entrances, 280 KB, kept in the docs repo's `terrain/subway/`, out of git) gives **1,789 entrances** inside the border, on land and not inside a building (one per 5 m). Each arrival picks the wall or a subway entrance half and half (Claude's call); a subway arrival stands right at the entrance. _Checked offscreen:_ with the refill share raised for the test, 14 came back in a minute, 6 of them up out of the subway. Bodies that turn add Fresh zombies with death and respawn (§10).
+   - **Numbers** in NYZ Zombies, "Hordes" (horde speed, pulled speed, refill share); the horde share and group sizes are in the placing tool.
+   - **Checked (Claude, offscreen on the NYC map):** the file loaded with its 52 hordes and 120 entry points; a noise heard to 600 m reached 454 zombies (417 of them asleep), which walked in and woke as they came within 200 m (up to the cap of 60); after `ZombieClear` removed 60, refill brought one back at the wall within the minute; hordes in the loaded area took steps. **Not checked:** hordes drifting across the whole city (only a dedicated server has all of it loaded; no bot run was made for this chunk).
+- **Still to come, each with its system:** night (more zombies out, sight halved: day and night), turned bodies (death and respawn), killing and head-only damage (melee and guns), applying hits and infection (health), Mixamo's zombie set (stand-in look B, when the developer downloads it), crowd spacing (zombies stand inside one another), and closing the server-cost gap (the optimizing pass).
+
 ### Open items
-- Zombie count per server (after the load test).
-- Day/night behavior (with weather and day/night).
+- _None from the design pass._ The numbers (speeds, distances, timings, densities, counts) are tuning, set in testing.
 
 ---
 
@@ -447,6 +595,7 @@ Built around the "easy to learn" principle: a few stats always on screen, condit
 
 ### City buildings can't be destroyed
 - Only player-added pieces can be damaged. Raiders have to come through doors, windows and player-built walls.
+- **One exception (decided 2026-11-13, the zombie pass, §8 "Getting to you"):** zombies can break ordinary city doors open. The building is untouched, and the door stays broken until the central economy resets it, like opened containers (§12).
 - Why: destructible city buildings would be an enormous technical cost, both for the server and for 1:1 NYC.
 - Side effect: a fifth-floor apartment with one barricaded door is a strong base, which gives players a tactical choice.
 - **Rooftop bases reachable only by helicopter are allowed** (§16).
@@ -458,6 +607,8 @@ Built around the "easy to learn" principle: a few stats always on screen, condit
 | T2 | Sheet metal, reinforced wood | Small hordes slowly; large hordes quickly |
 | T3 | Brick, concrete blocks | Small hordes barely; large hordes over time |
 | T4 | Steel, reinforced concrete | Small hordes can't damage it; large hordes wear it down over a long time |
+
+- **Small horde:** fewer than 10 zombies beating on a piece at once; **large horde:** 10 or more (decided 2026-11-13, the zombie pass, §8).
 
 ### Building noise
 - **Building attracts zombies, but it isn't extremely loud.**
@@ -1345,7 +1496,7 @@ Ties to the setting: **wild animals have moved back into the overgrown city** (�
 - **Gunshots attract zombies, so bows are the hunter's weapon** (§13).
 - **Tracking:** footprints in snow (§19) and blood trails, part of the Survival skill (§6).
 - **Hunting grounds:** the big parks (Central, Prospect, Pelham Bay, Van Cortlandt, Forest Park), Jamaica Bay and the Staten Island piece.
-- **Server cost:** animals use AI like zombies and count toward the same AI limits (§3).
+- **Server cost:** animals use AI like zombies and count toward the same AI limits (§3). They share the zombies' server budget (§8, decided 2026-11-13).
 
 ### Server limits
 - Crops and coops count toward the clan's building piece cap (§9).
@@ -1395,7 +1546,7 @@ Milestones in build order. Each system still gets its deeper design pass when we
   - **Players:** about 0.26–0.33% of the main thread each, so 300 spread-out players come to roughly 80–100% on the developer's PC (bots sharing the PC with the server), before zombies.
   - **Zombies are the biggest known cost:** the bare test zombies can't scale to 300 players; the zombie pass needs a lighter design (§3, point 4 below).
   - **Interiors are limited by memory:** about 0.17 MB a floor as built in the test, almost all collision; with the whole map loaded, roughly 2–10% of the city's floors can be enterable (point 2 below). Doors and containers are stored lightly (one object per building).
-  - **Left for when testing resumes:** the server loading only areas near players (World Partition's server streaming), what share of buildings get interiors, the 2 GB navigation copy of the buildings (zombie pass, §5), the zombie run in the block with the fixed bot starts, and stage 2 (the full 300 and 500 on other machines, point 6).
+  - **Left for when testing resumes:** the server loading only areas near players (World Partition's server streaming), what share of buildings get interiors, the 2 GB navigation copy of the buildings (zombie pass, §5; settled 2026-11-13: not needed), the zombie run in the block with the fixed bot starts, and stage 2 (the full 300 and 500 on other machines, point 6).
   - **No checks in between either** (the developer: "No pause all"; _replaced the same day by the middle ground below_). _Not chosen:_ Claude's suggestion to rerun the standard 5-minute bot run after each system that adds server work. The developer's reasoning: "after we work out weapons, loot, zombies, players, everything basically, that we're gonna have to optimize after all the previous testing, leaving the original testing only as a benchmark from a way earlier, pretty much empty version of the game".
   - **What the early results are for (Claude's answer to "correct me if im wrong"):** right that the numbers are a baseline from a nearly empty game and the real optimizing comes once the systems exist. But they're also **design limits for each system's design pass**, because how a system is built can't be fixed by optimizing at the end without rebuilding it: zombies need a lighter system than one full character each (point 4); the server skips animation (decided); doors, containers and anything numerous stored lightly, one object per building, only changes sent (decided); building collision simple and separate from the look (proposed, §5 city tool); the whole map loaded on the server for now, with game state kept separate from the map objects so the server could later load only areas near players without redesigning saves. Numbers (send rates, ranges, counts) are what the late optimizing tunes.
   - **Middle ground (decided 2026-11-11; the developer asked for one, Claude proposed it, the developer: "Yes, go with it"):** (1) **every system's design pass writes down its server budget** (for example, how much of the main thread its zombies may use per player, how many objects it adds per block), using the numbers above; no test. (2) **One quick check only for the few systems whose design is a bet on the server**, once their core works and before content is built on top: zombies (the biggest known cost), items lying in the world (how many exist across the city), vehicles (physics) and base building (pieces per base). One standard 5-minute bot run each, so about four over the whole of development. Systems that are mostly per-player data (weapons, inventory, crafting, skills, stats) cost the server little and get the written budget only. (3) **The full optimizing pass and the big test** (stage 2, 300 and 500 players) once most systems exist, as the developer said.
@@ -1569,7 +1720,7 @@ Claude's proposal; the developer asked "when does map development come", then, o
      - **What the city's files hold (checked 2026-11-11 on MN03):** streets only as flat outlines, all at one dummy height (7 ft), no surfaces: road areas (734, nearly all closed shapes), sidewalks (483, all closed), curb lines (1,430 open lines), plus parks, parking lots, lot lines, rail, subway and shoreline lines. So the heights come from our terrain.
      - **Claude's plan (2026-11-11, the developer asked "Whats your plan for the streets?"; waiting for an answer):**
        1. **A street converter** beside the building one: reads each district's road and sidewalk outlines, lays them onto the terrain, roads a few cm above it and **sidewalks 15 cm higher with a curb face**, with only as many triangles as the slopes need. Same 250 m tiles and importer as the buildings, in two greys (road darker).
-       2. **Not used for zombie pathfinding:** street meshes are left out of navigation (zombies' paths come from the terrain just beneath, a curb is a step), so they don't get the 2 GB-style navigation copy the buildings have (§5).
+       2. **Not used for zombie pathfinding:** street meshes are left out of navigation (zombies' paths come from the terrain just beneath, a curb is a step), so they don't get the 2 GB-style navigation copy the buildings have (§5). _Changed 2026-11-13 (zombie pass, §8 "Finding the way"): there's no navigation mesh outdoors at all; zombies steer, so streets need only collision, and a curb is a step their own movement takes._
        3. **Server budget (written, milestone 1's middle ground):** streets at most about 0.5 GB on the server, about 10 million triangles at the measured 53 bytes each.
        4. **Order:** MN03 first (the East Village around the test block), looked at in the editor; then city-wide; then New Jersey's buildings (OpenStreetMap outlines, height from the height or floor tags or a default, flat roofs, same building list and importer) and its streets (OpenStreetMap road lines widened by road type, sidewalks added along city streets). New Jersey's OpenStreetMap data is a free download; its size goes to the developer before downloading.
        5. **Gap to settle: bridges and elevated highways.** The survey terrain has no bridge decks (they're removed from it) and the city's files don't model them, so the George Washington, Verrazzano, Throgs Neck, Whitestone and East River bridges (§5) and elevated roads need simple decks of their own: real ends and known heights, a small pass of their own in this stage.
@@ -1644,6 +1795,7 @@ Claude's proposal; the developer asked "when does map development come", then, o
      - NYZ now enables the plugins the sample needs (motion matching, choosers, animation and motion warping, blend stacks, the locomotion library, Mover, the animation mixer, curve expressions, debug drawing), has the sample's footstep-sound and motion-matching tags, and **leaves animation data out of the dedicated server's build** (it never animates).
      - **Mapping:** our walk, jog and sprint are the sample's walk, run and sprint; crouch is crouch; strafing always (point 8); others' copies of a character tell the pace from its speed, since they don't get its keys. _Shortcut:_ prone plays the crouch animations until prone ones come.
      - Checked headless: a server and an animated player joined, and the animation blueprint read all its fields from our character.
+    - **Log flood fixed 2026-11-13:** the sample's animation blueprint reads 8 of the sample project's own console variables (`DDCvar...`, defined in its `DefaultEngine.ini`), which NYZ lacked, so every player's screen logged a warning per variable every frame (about 320,000 log lines a minute). They're now registered in the game's `Config/DefaultEngine.ini` with the values the blueprint was getting while they were missing (0 / off), so the animation is unchanged. _Claude's call:_ the sample runs `DDCVar.ThreadSafeAnimationUpdate.Enable` on, NYZ keeps it off as tested; turning it on is a possible speed-up to try with the animation work.
      - **Straight sprints kept dropping out of the lean, fixed 2026-11-12** (the developer: "the sprint has a little funk to it, its like it enters the full speed animation, and after a second or a few, it goes back to the start of the animation, where hes fully standing running instead of that foward lean"; "only happens with straight run, w only. sideways fowards sprints are fine"). _Cause, found by logging which clip the animation blueprint picks during a scripted sprint:_ the sample's clips are made for its own speeds (walk 2, run 5, sprint 7 m/s; ours are 1.6, 3.5 and 6). Its sprint-loop sets also hold walk-to-sprint and run-to-sprint transition clips, which speed up from 5 to 7 m/s; at our steady 6 m/s the search found the middle of a transition a closer match than the 7 m/s loop, so it replayed a transition about once a second (upright run, lean in, repeat). There are no diagonal transition clips, which is why W+A and W+D were fine. _Fix:_ `make_player_character.py` (through `UNYZAnimationSetup::BuildMotionMatching`) takes the transition clips out of the three sprint-loop sets (dense 4, sparse 4, extreme sparse 1) and rebuilds the search indexes; the change is to our copy of the sample's files, redone by that script on any PC. Checked the same way: a 3.4 s straight sprint stays on `M_Neutral_Sprint_Loop_F`. _Not done:_ matching our speeds to the sample's (a gameplay number; the developer's call if wanted).
    - **Decided: the sample's files stay out of git** (the developer: "Yes, keep them out"; Claude's pick). Where the copied animations live: About 2.5–3 GB. GitHub's free Git LFS gives 10 GB of storage and 10 GB of downloads a month (the game repo uses 134 MB today), and every fresh clone of the game repo would download them again. Claude's pick: **keep the sample's files out of git** (ignored, like the NYC map), rebuilt on any PC by a script that copies them from the sample project, which anyone can get free from Fab; our own files (the character Blueprint, changes) stay in git.
    - **Claude making animations itself** (the developer, 2026-11-11: "I meant a seperate project if i had you make them. You say you cant hand make good ones, does that mean you can hand make bad ones"). _Claude's answer:_ yes, placeholder quality: keyframes set by script on the mannequin's skeleton, in Blender (connected to Claude, which can render frames to check them) or in Unreal; stiff and weightless, fine as stand-ins. **Code-driven (procedural) animation is the exception and can look good:** leaning the upper body (point 6), turning the head in free look (point 7), feet planting on curbs and slopes. No separate Unreal project needed for either: Blender files outside the game repo while they're rough, then imported into NYZ. **Decided for now** (the developer: "Yes, that split for now"; Claude's proposal): Epic's sample for walking, running, crouching and vaulting; procedural for lean, head and feet; Claude's placeholders only where no free animation exists, swapped later.
@@ -1724,7 +1876,7 @@ Each system gets its own section once we design it. Add or remove items as neede
 Ticked = fully designed, nothing left open. Unticked but "decided" = the system is set, with open items still listed in its section.
 
 - [ ] Character & movement: decided (§25, design pass 2026-11-11); open: which ledges are grabbable, ledges and bases, the sea edge for swimmers
-- [ ] Zombies: decided (§8); open items listed there
+- [ ] Zombies: decided (§8); open items listed there. Design pass done 2026-11-13 (§8, server budget included); all six chunks built (2026-11-13 to 14); what's left waits for other systems (§8 "Building it")
 - [x] Player survival stats: decided (§7); zombie infection in §8
 - [ ] Lore: paused (§23, [lore bible](lore/LORE.md)); to be revisited in full later in development
 - [ ] Loot & items: decided (§12); open items listed there
@@ -1769,5 +1921,4 @@ Ideas the developer likes but that aren't planned for now. Each notes why it's p
 - Can one UE5 server process hold 300 players plus zombies? Answered only by the load test (§3).
 - Which buildings are enterable? (NYC has about a million.) _How they're chosen is set (2026-11-10, §5): per building in the city-building tool, one at a time or many at once. Which ones is still open._ The test block's numbers (§24 milestone 1 point 2) say memory decides it: about 36 MB on the server per block with every floor enterable (0.17 MB a floor, measured 2026-11-11; the first rough figure was 60 MB), almost all of it collision. With the whole map loaded and about 10 GB for interiors, roughly 2% of the city's floors fit as built in the test, roughly 10% with simple merged collision per building (estimate); more than that needs the server to load only areas near players.
 - Skill journal details: see §6 Open items.
-- Target zombie count per server?
 - Business model: buy-to-play, free, other?

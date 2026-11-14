@@ -32,7 +32,7 @@ What we have today (Epic's free sample, about 800 clips) is in [animation-list.m
 - **One skeleton.** Today that is the sample's mannequin; the game will have two base bodies (GDD §21) that share clips.
 - **The same clips serve first and third person.** The first-person camera sits on the full body (GDD §25 point 8), so there is no separate set of floating arms. Anything the hands do must look right from the character's own eyes.
 - **Handedness (GDD §7):** clips are right-handed. Left-hand versions exist only where the design needs them: one-handed pistols, one-handed melee and throwing.
-- **Speeds are fixed by the design:** walk 1.6 m/s, jog 3.5, sprint 6, crouch 1 and 2.2, prone 0.6, swim 1.2, limp up to 2, both legs destroyed 0.8.
+- **Speeds are fixed by the design:** walk 1.6 m/s, jog 3.5, sprint 6, crouch 1 and 2.2, prone 0.6, swim 1.2, limp up to 2, both legs destroyed 0.8. **Zombies (GDD §8):** chasing Fresh 4.5, Weathered 2.0, Decayed 1.2, crawler 0.4; wandering about half.
 - **For Claude to add after hand-over, not part of the clip:** the moments hands or feet touch something (so the game can line them up with the real ledge), footstep and sound markers, and the point a move can be interrupted.
 
 **Base poses:** standing idle, crouched idle, prone idle, hanging from a ledge, on a ladder, treading water, seated (chair height), seated in a vehicle, kneeling on one knee, lying on the back.
@@ -341,7 +341,7 @@ The roster has 56 guns on **19 platforms**; every gun on a platform shares its c
 
 | ID | Clip | What the body does | Loop | Moves | Variants | When | Have |
 |---|---|---|---|---|---|---|---|
-| HRT-001 | Flinch | A light hit | 1 | In place | From the front, back, left, right | M2 | – |
+| HRT-001 | Flinch | A light hit; a zombie's swipe also slows a moving player to a walk for 0.4 s (GDD §8 Attacks) | 1 | In place | From the front, back, left, right; standing, while moving | M2 | – |
 | HRT-002 | Stagger | A heavy hit knocks the body off balance | 1 | In place | 4 directions | M2 | – |
 | HRT-003 | Knocked down and getting up | | 1 | In place | Onto the back, onto the front | M2 | – |
 | HRT-004 | Shot | By where it lands | 1 | In place | Head, torso, arm, leg | Sys | – |
@@ -457,25 +457,27 @@ _To decide when death is built:_ whether deaths are clips or the body simply goi
 
 Four ordinary tiers that differ in how they move, a crawler, and two special kinds. What a zombie was (police, firefighter, dockworker) changes its clothes, not its clips.
 
+**Stand-ins until these are made (GDD §8, decided 2026-11-13):** first the sample's mannequin tinted by tier, playing the sample's walk and idle slowed down; next Mixamo's free zombie set (about 20 files the developer downloads), which covers most of the M2 rows here. The server never plays zombie animations.
+
 ### 10.1 Every ordinary zombie
 
 | ID | Clip | What the body does | Loop | Moves | Variants | When | Have |
 |---|---|---|---|---|---|---|---|
-| ZMB-001 | Stand | Swaying, head lolling | L | In place | 3–4, so a crowd doesn't move as one | M2 | – |
-| ZMB-002 | Wander | Slow, aimless | L | In place | 2–3 | M2 | – |
+| ZMB-001 | Stand | Swaying, head lolling | L | In place | 3–4, so a crowd doesn't move as one | M2 | J |
+| ZMB-002 | Wander | Slow, aimless, at about half its chasing speed | L | In place | Per tier: Fresh about 2.2 m/s, Weathered 1.0, Decayed 0.6; 2 each | M2 | J |
 | ZMB-003 | Notice | The head snaps round to a sound; turns to face it | 1 | In place | Left, right, behind | M2 | – |
-| ZMB-004 | Chase: Fresh | Between a walk and a run, driven, arms reaching | L | In place | 2 | M2 | – |
-| ZMB-005 | Chase: Weathered | A normal walking pace, stiff | L | In place | 2 | M2 | – |
-| ZMB-006 | Chase: Decayed | A dragging shamble | L | In place | 2 | M2 | – |
+| ZMB-004 | Chase: Fresh | Between a walk and a run, driven, arms reaching; 4.5 m/s | L | In place | 2 | M2 | J |
+| ZMB-005 | Chase: Weathered | A brisk walking pace, stiff; 2.0 m/s | L | In place | 2 | M2 | J |
+| ZMB-006 | Chase: Decayed | A dragging shamble; 1.2 m/s | L | In place | 2 | M2 | J |
 | ZMB-007 | Turn on the spot | Lurching round | 1 | In place | 90, 180 × L/R | M2 | – |
-| ZMB-008 | Grab | Lunges and takes hold of a person | 1 | In place | Front, from behind | M2 | – |
+| ZMB-008 | Grab | Lunges and takes hold of a person, then holds on for about 1.5 s (the bite, ZMB-009, or shoved off, ZMB-011, follows) | 1→L | In place | Front, from behind | M2 | – |
 | ZMB-009 | Bite | Bites what it is holding | 1 | In place | Standing; on someone on the ground | M2 | – |
-| ZMB-010 | Swipe | A clawing scratch | 1 | In place | Left arm, right arm | M2 | – |
+| ZMB-010 | Swipe | A clear 0.5 s wind-up a player can read and step away from, then a clawing scratch reaching about 1.5 m; one every 1.5 s | 1 | In place | Left arm, right arm | M2 | – |
 | ZMB-011 | Shoved off | Thrown back off its victim | 1 | In place | 1 | M2 | – |
-| ZMB-012 | Beat on something | Fists and claws on a door, wall or barricade | L | In place | 2–3 | Sys | – |
-| ZMB-013 | Break through | The last heave as a door or boards give | 1 | Travels | 1 | Sys | – |
-| ZMB-014 | Over a low fence | Hauls itself over, slowly | 1 | Travels: over up to 1.1 m | Makes it; falls on the far side | Sys | – |
-| ZMB-015 | Reach up | Clawing upward at someone on a ledge or ladder it can't climb | L | In place | 1 | Sys | – |
+| ZMB-012 | Beat on something | Fists and claws on a door, wall or barricade; a city door gives after about 30 s of one zombie | L | In place | 2–3 | M2 | – |
+| ZMB-013 | Break through | The last heave as a door or boards give, or a fist through a closed window | 1 | Travels | Door, boards, window glass | M2 | – |
+| ZMB-014 | Over a low fence | Hauls itself over, slowly (about 2 s) | 1 | Travels: over up to 1.1 m | Makes it; falls on the far side; in through a ground-floor window opening | M2 | – |
+| ZMB-015 | Reach up | Clawing upward at someone on a ledge, ladder or car roof it can't climb; reaches about 1.5 m; in a crowd, the others pressing in | L | In place | 1 | M2 | – |
 | ZMB-016 | At a vehicle | Beats on a car; reaches in through a window; drags a rider off a bike | L, 1 | In place | 3 | Sys | – |
 | ZMB-017 | Hit, still standing | Rocked by a hit to the body | 1 | In place | Front, back, left, right | M2 | – |
 | ZMB-018 | Pushed back | Stumbles backwards from a shove; either keeps its feet or goes down | 1 | In place | Stays up, falls | M2 | – |
@@ -487,13 +489,15 @@ Four ordinary tiers that differ in how they move, a crawler, and two special kin
 | ZMB-024 | Burn | Keeps walking on fire, then falls | L, 1 | In place | 1 | Sys | – |
 | ZMB-025 | At the water's edge | Stops at deep water, reaching out | L | In place | 1 | Sys | – |
 | ZMB-026 | Rise | A dead body turns: twitches, then gets up as a Fresh zombie | 1 | In place | From the back, from the front | Sys | – |
+| ZMB-027 | Spot | Catches sight of something: stops, head pushed forward, stares for about a second (the moment a player can still duck) | 1 | In place | Ends two ways: loses interest; a moan and a lurch into the chase | M2 | – |
+| ZMB-028 | Search | Where it last saw someone: stops, turns, head sweeping and sniffing, a few steps, again (about 30 s) | L | In place | 2 | M2 | – |
 
 ### 10.2 Crawlers
 
 | ID | Clip | What the body does | Loop | Moves | Variants | When | Have |
 |---|---|---|---|---|---|---|---|
 | ZMB-030 | Lie | Still, or twitching | L | In place | 2 | M2 | – |
-| ZMB-031 | Crawl | Dragging itself by the arms | L | In place | 2 | M2 | – |
+| ZMB-031 | Crawl | Dragging itself by the arms; 0.4 m/s chasing, about 0.2 wandering | L | In place | 2 | M2 | – |
 | ZMB-032 | Grab an ankle | Reaches and takes hold; bites | 1 | In place | 1 | M2 | – |
 | ZMB-033 | Hit, killed | | 1 | In place | 2 | M2 | – |
 
@@ -579,8 +583,8 @@ These lists aren't final, so their clips can't be listed one by one yet. Each ge
 
 ## Rough size
 
-306 numbered rows, plus the 21 gun and bow platforms in section 5.2. By when they're needed: 27 are in the game now on sample clips, 77 are for milestone 2, 172 come with their systems, 16 are optional, and 14 are the animals.
+308 numbered rows, plus the 21 gun and bow platforms in section 5.2. By when they're needed: 27 are in the game now on sample clips, 83 are for milestone 2, 168 come with their systems, 16 are optional, and 14 are the animals.
 
-Each row is several clips once its variants are made. Claude's rough estimate, not a count: 1,400 to 1,600 clips in all, with movement about 350, guns about 400 once every platform has its set, and zombies about 110. The sample we use today is about 800 clips, nearly all of them movement.
+Each row is several clips once its variants are made. Claude's rough estimate, not a count: 1,400 to 1,600 clips in all, with movement about 350, guns about 400 once every platform has its set, and zombies about 115. The sample we use today is about 800 clips, nearly all of them movement.
 
-Fewer are needed to start: the rows marked **Now** and **M2** are 104 of the 306.
+Fewer are needed to start: the rows marked **Now** and **M2** are 110 of the 308.
