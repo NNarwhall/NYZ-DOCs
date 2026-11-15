@@ -1,6 +1,6 @@
 # NYZ
 
-Multiplayer open-world zombie survival game: DayZ + Project Zomboid, with survival mechanics from Ark. Set in New York City at 1:1 scale. Unreal Engine 5, PC first, 250–300 players per server at launch (500 later if budget allows).
+Multiplayer open-world zombie survival game: DayZ + Project Zomboid, with survival mechanics from Ark. Set in New York City at 1:1 scale. Unreal Engine 5, PC first, 500 players per server at launch (raised from 250–300 on 2026-11-15; no launch below 500).
 
 ## Before doing anything
 

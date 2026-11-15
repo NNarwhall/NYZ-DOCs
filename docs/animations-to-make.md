@@ -282,6 +282,7 @@ Five weapon classes, each needing the same set. **Classes:** bare hands; one-han
 | THR-004 | Molotov | Lights the rag, then throws | 1 | In place | 1 | Sys | – |
 
 ---
+| THR-005 | Road flare | Strikes the cap to light it, holds it up, then drops or throws it (a sign seen from afar, GDD §5 "Encounters") | 1 | In place | Hold up, drop, throw | Sys | – |
 
 ## 5. Player: guns and bows (GDD §13, [gun roster](weapons/gun-roster.md))
 
@@ -582,9 +583,10 @@ These lists aren't final, so their clips can't be listed one by one yet. Each ge
 - **Anything new a system's design pass adds.**
 
 ## Rough size
+- **World events** (GDD §5 "Encounters"; supply drops, crashes): whatever their own design pass adds beyond opening a crate (INV-010).
 
-308 numbered rows, plus the 21 gun and bow platforms in section 5.2. By when they're needed: 27 are in the game now on sample clips, 83 are for milestone 2, 168 come with their systems, 16 are optional, and 14 are the animals.
+309 numbered rows, plus the 21 gun and bow platforms in section 5.2. By when they're needed: 27 are in the game now on sample clips, 83 are for milestone 2, 169 come with their systems, 16 are optional, and 14 are the animals.
 
 Each row is several clips once its variants are made. Claude's rough estimate, not a count: 1,400 to 1,600 clips in all, with movement about 350, guns about 400 once every platform has its set, and zombies about 115. The sample we use today is about 800 clips, nearly all of them movement.
 
-Fewer are needed to start: the rows marked **Now** and **M2** are 110 of the 308.
+Fewer are needed to start: the rows marked **Now** and **M2** are 110 of the 309.
