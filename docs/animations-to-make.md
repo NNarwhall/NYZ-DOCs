@@ -280,9 +280,9 @@ Five weapon classes, each needing the same set. **Classes:** bare hands; one-han
 | THR-002 | Toss underhand | A short, quiet lob | 1 | In place | 1 | Sys | – |
 | THR-003 | Grenade | Pulls the pin, then throws | 1 | In place | 1 | Sys | – |
 | THR-004 | Molotov | Lights the rag, then throws | 1 | In place | 1 | Sys | – |
+| THR-005 | Road flare | Strikes the cap to light it, holds it up, then drops or throws it (a sign seen from afar, GDD §5 "Encounters") | 1 | In place | Hold up, drop, throw | Sys | – |
 
 ---
-| THR-005 | Road flare | Strikes the cap to light it, holds it up, then drops or throws it (a sign seen from afar, GDD §5 "Encounters") | 1 | In place | Hold up, drop, throw | Sys | – |
 
 ## 5. Player: guns and bows (GDD §13, [gun roster](weapons/gun-roster.md))
 
@@ -580,10 +580,10 @@ These lists aren't final, so their clips can't be listed one by one yet. Each ge
 - **Special zombies' unique moments** and anything the lore adds (the lore is to be revisited; GDD §23).
 - **Traps, tracking and fishing tackle** (GDD §22 open items).
 - **Helicopter types, boat types** (GDD §16 open items): only where getting in or the seat differs.
+- **World events** (GDD §5 "Encounters"; supply drops, crashes): whatever their own design pass adds beyond opening a crate (INV-010).
 - **Anything new a system's design pass adds.**
 
 ## Rough size
-- **World events** (GDD §5 "Encounters"; supply drops, crashes): whatever their own design pass adds beyond opening a crate (INV-010).
 
 309 numbered rows, plus the 21 gun and bow platforms in section 5.2. By when they're needed: 27 are in the game now on sample clips, 83 are for milestone 2, 169 come with their systems, 16 are optional, and 14 are the animals.
 

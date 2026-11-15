@@ -1925,6 +1925,7 @@ Ticked = fully designed, nothing left open. Unticked but "decided" = the system 
 - [ ] Servers: persistence, wipes & admin: decided (§20); open items listed there
 - [ ] Death & respawn: decided (§6, §10); open items listed in §10
 - [ ] Character creation: decided (§21); open items listed there
+- [ ] World events (supply drops, crashes and the like): decided in principle 2026-11-15 (§5 "Encounters": a few at a time, near where players are, sized for small fights); own design pass later; who sends them waits for the lore revisit (§23)
 - [ ] Audio: not designed yet. **The developer is considering FMOD for it, later, not now** (2026-11-13: "if i wanted to implement fmod, would that be entirely seperate from this later on not now?", asked after footstep noise was built). _Claude's answer:_ yes, separate. The footstep noise of §25 is a number the server works out for zombies; the sound players hear is played on each player's PC by whatever audio tool is chosen, and nothing built so far ties the game to one. _The one link to keep when audio is built:_ how far a footstep can be heard by ear should be tuned to the same distances zombies hear it at (§25 point 12: "the same footstep sound is heard by other players", §8). _To check then:_ FMOD's licence terms for a small studio, and its Unreal plugin against our source-built 5.8 engine; the dedicated server needs no audio.
 
 ---
@@ -1950,4 +1951,3 @@ Ideas the developer likes but that aren't planned for now. Each notes why it's p
 - Which buildings are enterable? (NYC has about a million.) _How they're chosen is set (2026-11-10, §5): per building in the city-building tool, one at a time or many at once. Which ones is still open._ The test block's numbers (§24 milestone 1 point 2) say memory decides it: about 36 MB on the server per block with every floor enterable (0.17 MB a floor, measured 2026-11-11; the first rough figure was 60 MB), almost all of it collision. With the whole map loaded and about 10 GB for interiors, roughly 2% of the city's floors fit as built in the test, roughly 10% with simple merged collision per building (estimate); more than that needs the server to load only areas near players.
 - Skill journal details: see §6 Open items.
 - Business model: buy-to-play, free, other?
-- [ ] World events (supply drops, crashes and the like): decided in principle 2026-11-15 (§5 "Encounters": a few at a time, near where players are, sized for small fights); own design pass later; who sends them waits for the lore revisit (§23)
