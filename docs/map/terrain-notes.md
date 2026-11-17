@@ -75,6 +75,10 @@ It takes about a minute and:
 - Lighting normals along region edges are worked out without the next region, so a faint line every 4 km is possible (the tool's one known shortcut); fix only if it shows.
 - The Iris grid bounds now cover it: ±18 km × ±21 km (`NYZ/Config/DefaultEngine.ini`, 2026-11-10).
 
+## The ground under the streets (2026-11-15)
+
+The street converter smooths the heightmap under each district's streets (`tools/map/street_bed.py`, GDD §24 map stage 1: bumps, wall ridges and the real curb removed; lowered by at most 25 cm, raised by up to 4 m within 6 m of a building and 25 cm elsewhere; then rebuild the test block with the game repo's `Tools/build_test_block.py` if its district changed), writing `terrain/NYZ_terrain.r16` in place. The original heights stay in `terrain/NYZ_terrain_raw.r16` (copied the first time, and again whenever `build_terrain.py` has rebuilt the terrain since), which the smoothing always starts from. The game repo's `Tools/update_terrain.py` writes the changed area into the existing terrain without re-importing the map. A fresh full import (`import_terrain.py`) takes the smoothed heightmap as it is.
+
 ## Tools on this PC
 
 QGIS 4.2.2 at `C:\Program Files\QGIS 4.2.2`; its `bin` folder has the GDAL command-line tools (`gdalinfo`, `gdalbuildvrt`, `gdalwarp`, `gdal_translate`, `gdaltransform`), which can script steps 2–3.

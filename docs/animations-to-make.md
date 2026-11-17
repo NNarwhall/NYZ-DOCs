@@ -205,6 +205,8 @@ Mostly short clips or poses layered over normal movement.
 | INV-018 | Radio | Lifts a walkie-talkie to the mouth, talks, lowers it | 1→L→1 | In place | 1 | Sys | – |
 | INV-019 | Money | Counts out notes and hands them over | 1 | In place | 1 | Sys | – |
 | INV-020 | Spray a tag | Shakes a spray can and paints a wall | 1→L→1 | In place | 1 | Sys | – |
+| INV-021 | Search a trash pile | Crouches at a heap of black bags at the curb (GDD §5, §12; placed in the showcase street 2026-11-15), tears one open, rummages, shoves it aside | 1→L→1 | In place | 1 | Sys | – |
+| INV-022 | Search a car's inside | Leans in through an open door or broken window: glovebox, seats, footwells (the boot is INV-010) | 1→L→1 | In place | Through a door, through a window | Sys | – |
 
 ---
 
@@ -387,6 +389,7 @@ _To decide when death is built:_ whether deaths are clips or the body simply goi
 | BLD-010 | Take a piece down | Prises a piece off with a crowbar or hammer claw | L | In place | 1 | Sys | – |
 | BLD-011 | Generator | Pulls the starter cord; pours fuel in | 1 | In place | Start, refuel | Sys | – |
 | BLD-012 | Doors, gates, hatches | Opens and closes: pushes, pulls, slides, lifts | 1 | In place | Push door, pull door, sliding gate, roll-up shutter, floor hatch | M2 | – |
+| BLD-013 | Sidewalk cellar doors | The steel double doors set into a sidewalk (GDD §5, §24; placed as look-only plates 2026-11-15, opening comes with basements): from above, bends, heaves one heavy leaf up and over until it rests open, then the other; from the steps below, reaches up and pulls them shut overhead, or pushes them open | 1 | In place | Open and close from above; open and close from below | Sys | – |
 | CRF-001 | Craft by hand | Puts something together in the hands | L | In place | Standing, crouched, walking | M2 | – |
 | CRF-002 | Work at a station | Workbench; gunsmith bench; reloading press (pulls a lever); sewing station | L | In place | 4 | Sys | – |
 | CRF-003 | Take things apart | Furniture (saw, crowbar); a car (wrench); electronics (screwdriver) | L | In place | 3 | Sys | – |
@@ -585,8 +588,8 @@ These lists aren't final, so their clips can't be listed one by one yet. Each ge
 
 ## Rough size
 
-309 numbered rows, plus the 21 gun and bow platforms in section 5.2. By when they're needed: 27 are in the game now on sample clips, 83 are for milestone 2, 169 come with their systems, 16 are optional, and 14 are the animals.
+312 numbered rows, plus the 21 gun and bow platforms in section 5.2. By when they're needed: 27 are in the game now on sample clips, 83 are for milestone 2, 172 come with their systems, 16 are optional, and 14 are the animals.
 
 Each row is several clips once its variants are made. Claude's rough estimate, not a count: 1,400 to 1,600 clips in all, with movement about 350, guns about 400 once every platform has its set, and zombies about 115. The sample we use today is about 800 clips, nearly all of them movement.
 
-Fewer are needed to start: the rows marked **Now** and **M2** are 110 of the 309.
+Fewer are needed to start: the rows marked **Now** and **M2** are 110 of the 312.

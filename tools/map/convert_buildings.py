@@ -335,9 +335,9 @@ def convert(path):
           f"faces from {'stored meshes' if meshed >= 0.99 else f'outlines ({meshed:.0%} meshed)'}; read {read_s:.0f} s, total {time.time() - start:.0f} s")
 
 
-def convert_zip(path):
-    """A district zip as downloaded from NYC Planning: its one .3dm is unpacked, converted and deleted again
-    (about 6 times the zip's size unpacked; the whole city's would be about 50 GB)."""
+def convert_zip(path, convert=convert):
+    """A district zip as downloaded from NYC Planning: its one .3dm is unpacked, converted (by convert, also
+    convert_streets.py's) and deleted again (about 6 times the zip's size unpacked; the whole city's would be about 50 GB)."""
     with zipfile.ZipFile(path) as z:
         members = [m for m in z.namelist() if m.lower().endswith(".3dm")]
         assert len(members) == 1, f"{path.name}: expected one .3dm inside, found {members}"
